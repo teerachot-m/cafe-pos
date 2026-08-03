@@ -1,0 +1,211 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  CASHIER
+  BARISTA
+}
+
+model User {
+  id        String     @id @default(uuid())
+  name      String
+  email     String     @unique
+  password  String
+  role      Role       @default(CASHIER)
+  active    Boolean    @default(true)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  orders    Order[]    @relation("CashierOrders")
+  stockLogs StockLog[]
+}
+
+model Category {
+  id           String    @id @default(uuid())
+  name         String
+  description  String?
+  displayOrder Int       @default(0)
+  active       Boolean   @default(true)
+  products     Product[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Product {
+  id           String               @id @default(uuid())
+  categoryId   String
+  category     Category             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name         String
+  description  String?
+  price        Float
+  imageUrl     String?
+  isAvailable  Boolean              @default(true)
+  optionGroups ProductOptionGroup[]
+  recipes      RecipeBOM[]
+  orderItems   OrderItem[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+}
+
+model ProductOptionGroup {
+  id         String              @id @default(uuid())
+  productId  String
+  product    Product             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  name       String // e.g., Sweetness, Temperature, Milk Type
+  isRequired Boolean             @default(false)
+  minSelect  Int                 @default(0)
+  maxSelect  Int                 @default(1)
+  items      ProductOptionItem[]
+}
+
+model ProductOptionItem {
+  id          String             @id @default(uuid())
+  groupId     String
+  group       ProductOptionGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  name        String // e.g., 50% Sweet, Oat Milk, Hot, Iced
+  extraPrice  Float              @default(0)
+  recipes     RecipeBOM[]
+}
+
+model Ingredient {
+  id            String                  @id @default(uuid())
+  name          String
+  unit          String // g, ml, pcs, bag
+  currentStock  Float                   @default(0)
+  minStockAlert Float                   @default(100)
+  costPerUnit   Float                   @default(0)
+  recipes       RecipeBOM[]
+  stockLogs     StockLog[]
+  bomSnapshots  OrderItemBOMSnapshot[]
+  createdAt     DateTime                @default(now())
+  updatedAt     DateTime                @updatedAt
+}
+
+model RecipeBOM {
+  id               String             @id @default(uuid())
+  productId        String
+  product          Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  optionItemId     String?
+  optionItem       ProductOptionItem? @relation(fields: [optionItemId], references: [id], onDelete: SetNull)
+  ingredientId     String
+  ingredient       Ingredient         @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  quantityRequired Float // Amount of raw ingredient used per serving
+}
+
+model SalesChannel {
+  id        String   @id @default(uuid())
+  name      String   @unique // Offline, LineMan, Grab, ShopeeFood
+  gpPercent Float    @default(0) // e.g. 0 for Offline, 30 for LineMan
+  active    Boolean  @default(true)
+  orders    Order[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Customer {
+  id         String   @id @default(uuid())
+  name       String
+  phone      String   @unique
+  email      String?
+  points     Int      @default(0)
+  totalSpent Float    @default(0)
+  orders     Order[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+}
+
+enum OrderStatus {
+  PENDING
+  PREPARING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  PROMPTPAY_QR
+  CREDIT_CARD
+}
+
+enum PaymentStatus {
+  PAID
+  UNPAID
+  REFUNDED
+}
+
+model Order {
+  id               String        @id @default(uuid())
+  orderNo          String        @unique // e.g. ORD-20260801-0001
+  channelId        String
+  channel          SalesChannel  @relation(fields: [channelId], references: [id])
+  customerId       String?
+  customer         Customer?     @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  cashierId        String
+  cashier          User          @relation("CashierOrders", fields: [cashierId], references: [id])
+  subtotal         Float
+  channelGpPercent Float         @default(0)
+  channelGpFee     Float         @default(0)
+  netTotal         Float // subtotal - pointDiscount
+  cogsTotal        Float         @default(0) // sum of ingredient costs used in BOM
+  pointsEarned     Int           @default(0)
+  pointsUsed       Int           @default(0)
+  pointDiscount    Float         @default(0)
+  paymentMethod    PaymentMethod @default(CASH)
+  paymentStatus    PaymentStatus @default(PAID)
+  orderStatus      OrderStatus   @default(PENDING)
+  note             String?
+  items            OrderItem[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model OrderItem {
+  id                 String                 @id @default(uuid())
+  orderId            String
+  order              Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product                @relation(fields: [productId], references: [id])
+  productName        String
+  unitPrice          Float
+  quantity           Int
+  subtotal           Float
+  selectedOptionsJson String? // JSON string describing selected options
+  bomSnapshots       OrderItemBOMSnapshot[]
+}
+
+model OrderItemBOMSnapshot {
+  id               String     @id @default(uuid())
+  orderItemId      String
+  orderItem        OrderItem  @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  ingredientId     String
+  ingredient       Ingredient @relation(fields: [ingredientId], references: [id])
+  ingredientName   String
+  quantityDeducted Float
+  unit             String
+}
+
+enum StockLogType {
+  RESTOCK
+  SALE_DEDUCTION
+  WASTE
+  ADJUSTMENT
+}
+
+model StockLog {
+  id             String       @id @default(uuid())
+  ingredientId   String
+  ingredient     Ingredient   @relation(fields: [ingredientId], references: [id], onDelete: Cascade)
+  changeAmount   Float
+  resultingStock Float
+  type           StockLogType
+  note           String?
+  createdById    String?
+  createdBy      User?        @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+}
