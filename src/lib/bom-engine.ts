@@ -81,32 +81,46 @@ export async function processBOMStockDeduction(
   cashierId: string,
   txPrisma = prisma
 ) {
+  if (deductions.length === 0) return;
+
+  // One round trip to read all stocks, then one update per ingredient and a
+  // single batched log insert — keeps the transaction fast on remote databases.
+  const ingredients = await txPrisma.ingredient.findMany({
+    where: { id: { in: deductions.map((d) => d.ingredientId) } },
+  });
+  const stockById = new Map(ingredients.map((i) => [i.id, i.currentStock]));
+
+  const logs: {
+    ingredientId: string;
+    changeAmount: number;
+    resultingStock: number;
+    type: StockLogType;
+    note: string;
+    createdById: string;
+  }[] = [];
+
   for (const d of deductions) {
-    // Fetch current ingredient stock
-    const ing = await txPrisma.ingredient.findUnique({
-      where: { id: d.ingredientId },
-    });
+    const currentStock = stockById.get(d.ingredientId);
+    if (currentStock === undefined) continue;
 
-    if (!ing) continue;
+    const newStock = Math.max(0, currentStock - d.quantityDeducted);
 
-    const newStock = Math.max(0, ing.currentStock - d.quantityDeducted);
-
-    // Update ingredient stock
     await txPrisma.ingredient.update({
       where: { id: d.ingredientId },
       data: { currentStock: newStock },
     });
 
-    // Create stock log entry
-    await txPrisma.stockLog.create({
-      data: {
-        ingredientId: d.ingredientId,
-        changeAmount: -d.quantityDeducted,
-        resultingStock: newStock,
-        type: StockLogType.SALE_DEDUCTION,
-        note: `Automatic BOM deduction for Order ID #${orderId}`,
-        createdById: cashierId,
-      },
+    logs.push({
+      ingredientId: d.ingredientId,
+      changeAmount: -d.quantityDeducted,
+      resultingStock: newStock,
+      type: StockLogType.SALE_DEDUCTION,
+      note: `Automatic BOM deduction for Order ID #${orderId}`,
+      createdById: cashierId,
     });
+  }
+
+  if (logs.length > 0) {
+    await txPrisma.stockLog.createMany({ data: logs });
   }
 }

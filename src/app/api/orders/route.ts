@@ -171,7 +171,7 @@ export async function POST(req: Request) {
         },
       });
 
-      // Create Order Items & Snapshots
+      // Create Order Items & Snapshots (batched — one insert per item + one for all snapshots)
       for (const pItem of processedOrderItems) {
         const orderItem = await tx.orderItem.create({
           data: {
@@ -185,17 +185,15 @@ export async function POST(req: Request) {
           },
         });
 
-        // Add BOM Snapshots for this order item
-        const itemBOMs = bomResult.ingredientDeductions;
-        for (const ingDec of itemBOMs) {
-          await tx.orderItemBOMSnapshot.create({
-            data: {
+        if (bomResult.ingredientDeductions.length > 0) {
+          await tx.orderItemBOMSnapshot.createMany({
+            data: bomResult.ingredientDeductions.map((ingDec) => ({
               orderItemId: orderItem.id,
               ingredientId: ingDec.ingredientId,
               ingredientName: ingDec.ingredientName,
               quantityDeducted: ingDec.quantityDeducted,
               unit: ingDec.unit,
-            },
+            })),
           });
         }
       }
@@ -216,6 +214,11 @@ export async function POST(req: Request) {
       }
 
       return order;
+    }, {
+      // Remote pooled databases (e.g. Supabase from serverless) need headroom
+      // beyond Prisma's 5s default interactive-transaction timeout.
+      maxWait: 10000,
+      timeout: 25000,
     });
 
     const fullOrderDetails = await prisma.order.findUnique({
