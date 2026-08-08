@@ -60,8 +60,19 @@
   transform: translateY(-2px);
 }
 
-/* Thermal Receipt Printable Area */
+/* Thermal Receipt Printable Area (80mm thermal paper) */
+@page {
+  size: 80mm auto;
+  margin: 0;
+}
+
 @media print {
+  html, body {
+    width: 80mm;
+    margin: 0;
+    padding: 0;
+    background: #ffffff !important;
+  }
   body * {
     visibility: hidden;
   }
@@ -69,13 +80,17 @@
     visibility: visible;
   }
   #thermal-slip {
-    position: absolute;
+    position: fixed;
     left: 0;
     top: 0;
     width: 80mm;
+    max-width: 80mm;
     color: #000000 !important;
     background: #ffffff !important;
-    padding: 10px;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 4mm 3mm;
     font-family: monospace;
     font-size: 12px;
   }

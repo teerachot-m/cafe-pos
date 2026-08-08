@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Grid, Coffee, LogOut, User } from 'lucide-react';
+import { Grid, LogOut, User } from 'lucide-react';
 
 interface UserSession {
   id: string;
@@ -66,10 +66,9 @@ export default function HeaderBar() {
           <span>Main Menu</span>
         </Link>
 
-        {/* Cafe Title */}
-        <div className="hidden sm:flex items-center gap-2 text-stone-700 font-extrabold text-sm">
-          <Coffee className="w-4 h-4 text-emerald-700" />
-          <span>CAFE POS</span>
+        {/* Cafe Brand Logo */}
+        <div className="hidden sm:flex items-center">
+          <img src="/logo_single.png" alt="HAUS BLEND" className="h-8 w-auto" />
         </div>
 
         {/* User Info & Logout */}

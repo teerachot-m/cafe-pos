@@ -36,6 +36,11 @@ interface ProductOptionGroup {
   items: ProductOption[];
 }
 
+interface ChannelPrice {
+  channelId: string;
+  price: number;
+}
+
 interface Product {
   id: string;
   name: string;
@@ -44,6 +49,7 @@ interface Product {
   imageUrl: string | null;
   categoryId: string;
   optionGroups: ProductOptionGroup[];
+  channelPrices: ChannelPrice[];
 }
 
 interface Channel {
@@ -98,10 +104,11 @@ export default function POSTerminalPage() {
 
   useEffect(() => {
     fetch('/api/categories').then((res) => res.json()).then(setCategories);
-    fetch('/api/products').then((res) => res.json()).then(setProducts);
+    fetch('/api/products?available=1').then((res) => res.json()).then(setProducts);
     fetch('/api/channels').then((res) => res.json()).then((data: Channel[]) => {
       setChannels(data);
-      if (data.length > 0) setSelectedChannel(data[0]);
+      // Default to the storefront channel (GP 0%) so walk-in pricing shows first
+      if (data.length > 0) setSelectedChannel(data.find((c) => c.gpPercent === 0) || data[0]);
     });
   }, []);
 
@@ -109,6 +116,36 @@ export default function POSTerminalPage() {
     selectedCategory === 'ALL'
       ? products
       : products.filter((p) => p.categoryId === selectedCategory);
+
+  // Only show category tabs that actually have sellable products
+  const visibleCategories = categories.filter((c) =>
+    products.some((p) => p.categoryId === c.id)
+  );
+
+  // Base price of a product for a given sales channel (falls back to storefront price)
+  const getChannelPrice = (product: Product, channel: Channel | null) => {
+    if (!channel) return product.price;
+    const cp = product.channelPrices?.find((c) => c.channelId === channel.id);
+    return cp ? cp.price : product.price;
+  };
+
+  // Re-price every cart line whenever the cashier switches sales channel
+  const handleChannelChange = (channel: Channel) => {
+    setSelectedChannel(channel);
+    setCart((prev) =>
+      prev.map((item) => {
+        const extras = item.selectedOptionIds.reduce((acc, optId) => {
+          for (const group of item.product.optionGroups) {
+            const opt = group.items.find((o) => o.id === optId);
+            if (opt) return acc + opt.extraPrice;
+          }
+          return acc;
+        }, 0);
+        const unitPrice = getChannelPrice(item.product, channel) + extras;
+        return { ...item, unitPrice, subtotal: unitPrice * item.quantity };
+      })
+    );
+  };
 
   const handleProductClick = (product: Product) => {
     if (product.optionGroups && product.optionGroups.length > 0) {
@@ -121,7 +158,7 @@ export default function POSTerminalPage() {
       });
       setSelectedOptionsMap(initialMap);
     } else {
-      addToCart(product, [], [], product.price);
+      addToCart(product, [], [], getChannelPrice(product, selectedChannel));
     }
   };
 
@@ -147,7 +184,7 @@ export default function POSTerminalPage() {
       activeModalProduct,
       optionIds,
       optionNames,
-      activeModalProduct.price + extraPriceTotal
+      getChannelPrice(activeModalProduct, selectedChannel) + extraPriceTotal
     );
     setActiveModalProduct(null);
   };
@@ -291,7 +328,7 @@ export default function POSTerminalPage() {
               return (
                 <button
                   key={ch.id}
-                  onClick={() => setSelectedChannel(ch)}
+                  onClick={() => handleChannelChange(ch)}
                   className={`px-3.5 py-2 rounded-xl text-xs font-extrabold transition flex items-center gap-1.5 whitespace-nowrap ${
                     isSelected
                       ? 'bg-emerald-800 text-white shadow-sm'
@@ -324,7 +361,7 @@ export default function POSTerminalPage() {
           >
             รายการทั้งหมด ({products.length})
           </button>
-          {categories.map((cat) => (
+          {visibleCategories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id)}
@@ -374,7 +411,12 @@ export default function POSTerminalPage() {
 
               <div className="mt-3 flex items-center justify-between">
                 <span className="font-black text-sm text-emerald-800 font-mono">
-                  ฿{product.price.toFixed(2)}
+                  ฿{getChannelPrice(product, selectedChannel).toFixed(2)}
+                  {getChannelPrice(product, selectedChannel) !== product.price && (
+                    <span className="ml-1 text-[9px] text-stone-400 line-through font-normal">
+                      ฿{product.price.toFixed(2)}
+                    </span>
+                  )}
                 </span>
                 <button className="w-8 h-8 rounded-xl bg-emerald-100 group-hover:bg-emerald-800 text-emerald-800 group-hover:text-white flex items-center justify-center transition shadow-2xs">
                   <Plus className="w-4 h-4 font-bold" />
@@ -543,7 +585,13 @@ export default function POSTerminalPage() {
         <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="cream-card max-w-md w-full rounded-3xl p-6 border border-stone-300 shadow-xl">
             <h3 className="text-lg font-extrabold text-stone-800 mb-1">{activeModalProduct.name}</h3>
-            <p className="text-xs text-stone-500 mb-4">{activeModalProduct.description}</p>
+            <p className="text-xs text-stone-500 mb-1">{activeModalProduct.description}</p>
+            <p className="text-xs font-bold text-emerald-800 mb-4">
+              ราคา{selectedChannel ? ` (${selectedChannel.name})` : ''}:{' '}
+              <span className="font-mono font-black">
+                ฿{getChannelPrice(activeModalProduct, selectedChannel).toFixed(2)}
+              </span>
+            </p>
 
             <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
               {activeModalProduct.optionGroups.map((group) => (
@@ -719,7 +767,7 @@ export default function POSTerminalPage() {
             {/* Thermal Slip Printable Area */}
             <div id="thermal-slip" className="bg-white text-stone-900 p-4 rounded-xl font-mono text-xs border border-stone-300 shadow-inner mb-6 space-y-2">
               <div className="text-center border-b border-dashed border-stone-400 pb-2">
-                <div className="font-black text-sm">CAFE POS STORE</div>
+                <img src="/logo_single.png" alt="HAUS BLEND" className="w-36 mx-auto mb-1" />
                 <div>Bangkok, Thailand</div>
                 <div>TEL: 02-123-4567</div>
               </div>

@@ -83,14 +83,18 @@ export async function POST(req: Request) {
     for (const item of items) {
       const product = await prisma.product.findUnique({
         where: { id: item.productId },
-        include: { optionGroups: { include: { items: true } } },
+        include: {
+          optionGroups: { include: { items: true } },
+          channelPrices: { where: { channelId: channel.id } },
+        },
       });
 
       if (!product) {
         return NextResponse.json({ error: `Product ID ${item.productId} not found` }, { status: 400 });
       }
 
-      let itemUnitPrice = product.price;
+      // Channel-specific price overrides the base price when defined
+      let itemUnitPrice = product.channelPrices[0]?.price ?? product.price;
       const selectedOptionNames: string[] = [];
       const optionItemIds: string[] = [];
 

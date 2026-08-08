@@ -47,6 +47,7 @@ model Product {
   imageUrl     String?
   isAvailable  Boolean              @default(true)
   optionGroups ProductOptionGroup[]
+  channelPrices ProductChannelPrice[]
   recipes      RecipeBOM[]
   orderItems   OrderItem[]
   createdAt    DateTime             @default(now())
@@ -99,13 +100,26 @@ model RecipeBOM {
 }
 
 model SalesChannel {
-  id        String   @id @default(uuid())
-  name      String   @unique // Offline, LineMan, Grab, ShopeeFood
-  gpPercent Float    @default(0) // e.g. 0 for Offline, 30 for LineMan
-  active    Boolean  @default(true)
-  orders    Order[]
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String                @id @default(uuid())
+  name          String                @unique // Offline, LineMan, Grab, ShopeeFood
+  gpPercent     Float                 @default(0) // e.g. 0 for Offline, 30 for LineMan
+  active        Boolean               @default(true)
+  orders        Order[]
+  productPrices ProductChannelPrice[]
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
+}
+
+// Channel-specific selling price. Falls back to Product.price when absent.
+model ProductChannelPrice {
+  id        String       @id @default(uuid())
+  productId String
+  product   Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  channelId String
+  channel   SalesChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  price     Float
+
+  @@unique([productId, channelId])
 }
 
 model Customer {
