@@ -2,7 +2,9 @@ import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 
-const connectionString = process.env.DIRECT_URL || process.env.DATABASE_URL || '';
+// Runtime prefers the transaction-mode pooler (DATABASE_URL) — required on
+// serverless where session-mode connections (DIRECT_URL) get exhausted fast.
+const connectionString = process.env.DATABASE_URL || process.env.DIRECT_URL || '';
 const pool = new Pool({
   connectionString,
   ssl: connectionString.includes('supabase.com') ? { rejectUnauthorized: false } : undefined,
