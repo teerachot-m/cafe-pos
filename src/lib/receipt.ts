@@ -35,90 +35,109 @@ const parseOptions = (json?: string | null): string[] => {
   }
 };
 
-function printHtml(bodyHtml: string) {
-  const iframe = document.createElement('iframe');
-  // Real (but invisible) size so the document lays out at true 80mm width —
-  // required for measuring each slip's height before printing.
-  Object.assign(iframe.style, {
-    position: 'fixed',
-    right: '0',
-    bottom: '0',
-    width: '340px',
-    height: '10px',
-    border: '0',
-    opacity: '0',
-    pointerEvents: 'none',
-  });
-  document.body.appendChild(iframe);
-
-  const doc = iframe.contentDocument;
-  const win = iframe.contentWindow;
-  if (!doc || !win) return;
-
-  doc.open();
-  doc.write(`<!doctype html><html><head><meta charset="utf-8"><style>
-    @page { size: 80mm auto; margin: 0; }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; width: 80mm; background: #fff; color: #000; }
-    body { font-family: 'Courier New', 'Sarabun', monospace; font-size: 12px; line-height: 1.45; }
-    .slip { width: 80mm; padding: 3mm; }
-    /* One printed page per slip — auto-cutter printers cut between pages */
-    .page { break-after: page; page-break-after: always; }
-    .page:last-child { break-after: auto; page-break-after: auto; }
-    .center { text-align: center; }
-    .row { display: flex; justify-content: space-between; gap: 8px; }
-    .dashed { border-top: 1px dashed #000; margin: 5px 0; }
-    .solid { border-top: 1px solid #000; margin: 5px 0; }
-    .cut { border-top: 1px dashed #000; margin: 7px 0 6px; text-align: center; font-size: 10px; }
-    .logo { width: 32mm; display: block; margin: 0 auto 2mm; }
-    .big { font-size: 15px; font-weight: bold; }
-    .bold { font-weight: bold; }
-    .sm { font-size: 10px; }
-    .opt { padding-left: 10px; font-size: 10px; }
-    /* Compact cup label: 80mm wide, ~25mm tall */
-    .label { min-height: 25mm; padding: 2mm 3mm; border-top: 1px dashed #000; }
-    .label-logo { width: 18mm; display: block; margin: 0 auto 1mm; }
-    .label-name { font-size: 15px; font-weight: bold; line-height: 1.25; }
-    .label-cup { font-size: 11px; }
-  </style></head><body>${bodyHtml}</body></html>`);
-  doc.close();
-
-  // Wait for the logo image before opening the print dialog
-  const imgs = Array.from(doc.images);
-  Promise.all(
-    imgs.map((img) =>
-      img.complete
-        ? Promise.resolve()
-        : new Promise((res) => {
-            img.onload = img.onerror = () => res(null);
-          })
-    )
-  ).then(
-    // Let layout/fonts settle before measuring
-    () => new Promise((res) => setTimeout(res, 100))
-  ).then(() => {
-    // Each slip gets its own named @page sized to its content.
-    // ponytail: no forced 81mm floor — that was padding every short cup
-    // label (~25mm) out to 81mm, causing a long blank feed before every cut
-    // on the physical printer. If a printer driver turns out to rotate
-    // short (height < 80mm width) pages to landscape, reintroduce a floor
-    // sized to the actual failure, not a blanket 81mm.
-    const PX_PER_MM = 96 / 25.4;
-    const pages = Array.from(doc.querySelectorAll<HTMLElement>('.page'));
-    let sizeCss = '';
-    pages.forEach((p, i) => {
-      const hMm = Math.ceil(p.getBoundingClientRect().height / PX_PER_MM) + 2;
-      p.classList.add(`p${i}`);
-      sizeCss += `@page pg${i} { size: 80mm ${hMm}mm; margin: 0; } .p${i} { page: pg${i}; }\n`;
+// ponytail: Chrome's print dialog uses ONE paper size for a whole job — it
+// does not honor different @page sizes for different pages within a single
+// window.print() call, even with named pages. So each slip/label is printed
+// as its own job (one .page per doc), sized to exactly that content. This
+// means the printer sees a fresh document per slip and will cut (partial or
+// full, per its own driver setting) after every one — verify on hardware.
+function printSinglePage(bodyHtml: string): Promise<void> {
+  return new Promise((resolve) => {
+    const iframe = document.createElement('iframe');
+    // Real (but invisible) size so the document lays out at true 80mm width —
+    // required for measuring the slip's height before printing.
+    Object.assign(iframe.style, {
+      position: 'fixed',
+      right: '0',
+      bottom: '0',
+      width: '340px',
+      height: '10px',
+      border: '0',
+      opacity: '0',
+      pointerEvents: 'none',
     });
-    const sizeStyle = doc.createElement('style');
-    sizeStyle.textContent = sizeCss;
-    doc.head.appendChild(sizeStyle);
+    document.body.appendChild(iframe);
 
-    win.focus();
-    win.print();
-    setTimeout(() => iframe.remove(), 3000);
+    const doc = iframe.contentDocument;
+    const win = iframe.contentWindow;
+    if (!doc || !win) return resolve();
+
+    doc.open();
+    doc.write(`<!doctype html><html><head><meta charset="utf-8"><style>
+      @page { size: 80mm auto; margin: 0; }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; width: 80mm; background: #fff; color: #000; }
+      body { font-family: 'Courier New', 'Sarabun', monospace; font-size: 12px; line-height: 1.45; }
+      .slip { width: 80mm; padding: 3mm; }
+      .center { text-align: center; }
+      .row { display: flex; justify-content: space-between; gap: 8px; }
+      .dashed { border-top: 1px dashed #000; margin: 5px 0; }
+      .solid { border-top: 1px solid #000; margin: 5px 0; }
+      .cut { border-top: 1px dashed #000; margin: 7px 0 6px; text-align: center; font-size: 10px; }
+      .logo { width: 32mm; display: block; margin: 0 auto 2mm; }
+      .big { font-size: 15px; font-weight: bold; }
+      .bold { font-weight: bold; }
+      .sm { font-size: 10px; }
+      .opt { padding-left: 10px; font-size: 10px; }
+      /* Compact cup label: 80mm wide, ~25mm tall */
+      .label { min-height: 25mm; padding: 2mm 3mm; border-top: 1px dashed #000; }
+      .label-logo { width: 18mm; display: block; margin: 0 auto 1mm; }
+      .label-name { font-size: 15px; font-weight: bold; line-height: 1.25; }
+      .label-cup { font-size: 11px; }
+    </style></head><body>${bodyHtml}</body></html>`);
+    doc.close();
+
+    // Wait for the logo image before opening the print dialog
+    const imgs = Array.from(doc.images);
+    Promise.all(
+      imgs.map((img) =>
+        img.complete
+          ? Promise.resolve()
+          : new Promise((res) => {
+              img.onload = img.onerror = () => res(null);
+            })
+      )
+    ).then(
+      // Let layout/fonts settle before measuring
+      () => new Promise((res) => setTimeout(res, 100))
+    ).then(() => {
+      const PX_PER_MM = 96 / 25.4;
+      const page = doc.querySelector<HTMLElement>('.page') || doc.body;
+      const hMm = Math.ceil(page.getBoundingClientRect().height / PX_PER_MM) + 2;
+      const sizeStyle = doc.createElement('style');
+      sizeStyle.textContent = `@page { size: 80mm ${hMm}mm; margin: 0; }`;
+      doc.head.appendChild(sizeStyle);
+
+      let done = false;
+      const finish = () => {
+        if (done) return;
+        done = true;
+        iframe.remove();
+        resolve();
+      };
+      win.addEventListener('afterprint', finish, { once: true });
+
+      // Force layout to pick up the just-inserted @page rule before printing
+      // — calling print() straight after appendChild can snapshot stale
+      // page boxes and fall back to the default paper size.
+      win.requestAnimationFrame(() => {
+        win.requestAnimationFrame(() => {
+          win.focus();
+          win.print();
+          // Fallback in case 'afterprint' never fires (e.g. dialog cancelled
+          // in a way the browser doesn't report).
+          setTimeout(finish, 5000);
+        });
+      });
+    });
   });
+}
+
+/** Prints each body as its own print job, one after another. */
+async function printSlips(bodies: string[]) {
+  for (const body of bodies) {
+    await printSinglePage(body);
+  }
 }
 
 function receiptHtml(order: PrintableOrder): string {
@@ -197,21 +216,20 @@ function cupLabelsHtml(order: PrintableOrder): string[] {
 
 /** Full receipt slip — one per order. */
 export function printReceipt(order: PrintableOrder) {
-  printHtml(receiptHtml(order));
+  printSlips([receiptHtml(order)]);
 }
 
 /** Cup labels — one small slip per cup (quantity 2 → 2 labels). */
 export function printCupLabels(order: PrintableOrder) {
   const labels = cupLabelsHtml(order);
   if (labels.length === 0) return;
-  printHtml(labels.join(''));
+  printSlips(labels);
 }
 
 /**
- * One print job: receipt first, then every cup label.
- * Each slip is its own printed page, so printers with an auto-cutter
- * (Citizen CT-D150 etc., driver set to cut per page) cut between slips.
+ * Receipt first, then every cup label — each printed as its own job so it
+ * gets its own correctly-sized page (Citizen CT-D150 etc. cuts after each).
  */
 export function printOrderSlips(order: PrintableOrder) {
-  printHtml(receiptHtml(order) + cupLabelsHtml(order).join(''));
+  printSlips([receiptHtml(order), ...cupLabelsHtml(order)]);
 }
