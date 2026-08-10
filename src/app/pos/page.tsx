@@ -91,6 +91,9 @@ export default function POSTerminalPage() {
   const [activeModalProduct, setActiveModalProduct] = useState<Product | null>(null);
   const [selectedOptionsMap, setSelectedOptionsMap] = useState<Record<string, string>>({});
 
+  // External platform order no. (required for non-storefront channels)
+  const [externalOrderNo, setExternalOrderNo] = useState('');
+
   // Customer CRM State
   const [customerPhone, setCustomerPhone] = useState('');
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -123,6 +126,10 @@ export default function POSTerminalPage() {
   const visibleCategories = categories.filter((c) =>
     products.some((p) => p.categoryId === c.id)
   );
+
+  // Delivery-platform channels need the platform's own order number keyed in
+  const needsExternalOrderNo =
+    !!selectedChannel && !/offline|walk[- ]?in|หน้าร้าน/i.test(selectedChannel.name);
 
   // Base price of a product for a given sales channel (falls back to storefront price)
   const getChannelPrice = (product: Product, channel: Channel | null) => {
@@ -273,11 +280,16 @@ export default function POSTerminalPage() {
 
   const handleCompleteOrder = async () => {
     if (cart.length === 0 || !selectedChannel) return;
+    if (needsExternalOrderNo && !externalOrderNo.trim()) {
+      alert(`กรุณากรอกเลขออเดอร์จาก ${selectedChannel.name} ก่อนยืนยันชำระเงิน`);
+      return;
+    }
     setSubmittingOrder(true);
 
     try {
       const payload = {
         channelId: selectedChannel.id,
+        externalOrderNo: needsExternalOrderNo ? externalOrderNo.trim() : null,
         customerId: customer ? customer.id : null,
         usePoints: pointDiscount,
         paymentMethod,
@@ -304,6 +316,7 @@ export default function POSTerminalPage() {
       setCustomer(null);
       setCustomerPhone('');
       setUsePoints(0);
+      setExternalOrderNo('');
       setIsPaymentOpen(false);
     } catch (err: any) {
       alert(`Order Error: ${err.message}`);
@@ -350,6 +363,24 @@ export default function POSTerminalPage() {
             })}
           </div>
         </div>
+
+        {/* External Platform Order No. (delivery channels only) */}
+        {needsExternalOrderNo && (
+          <div className="cream-card p-3 rounded-2xl mb-4 flex items-center gap-3 border border-amber-300 bg-amber-50">
+            <span className="text-xs font-bold text-amber-900 whitespace-nowrap">
+              เลขออเดอร์จาก {selectedChannel?.name}: <span className="text-rose-600">*</span>
+            </span>
+            <input
+              type="text"
+              value={externalOrderNo}
+              onChange={(e) => setExternalOrderNo(e.target.value)}
+              placeholder="เช่น LM-1234, GF-5678"
+              className={`flex-1 bg-white border rounded-xl py-2 px-3 text-xs font-mono font-bold text-stone-900 focus:outline-none ${
+                externalOrderNo.trim() ? 'border-stone-300 focus:border-emerald-700' : 'border-rose-400 focus:border-rose-500'
+              }`}
+            />
+          </div>
+        )}
 
         {/* Category Tabs */}
         <div className="flex items-center gap-2 overflow-x-auto pb-3">
@@ -657,7 +688,21 @@ export default function POSTerminalPage() {
               <Banknote className="w-5 h-5 text-emerald-800" /> เลือกวิธีการชำระเงิน
             </h3>
 
+            {/* Delivery channels: platform collects the money — nothing to key in */}
+            {needsExternalOrderNo && (
+              <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl mb-6 text-center space-y-1">
+                <div className="text-xs font-bold text-emerald-900">
+                  รับชำระผ่าน {selectedChannel?.name} เต็มจำนวน
+                </div>
+                <div className="text-2xl font-black text-emerald-800 font-mono">฿{netTotal.toFixed(2)}</div>
+                <div className="text-[10px] text-emerald-700">
+                  ออเดอร์ #{externalOrderNo || '-'} — ไม่ต้องรับเงินสดหน้าร้าน
+                </div>
+              </div>
+            )}
+
             {/* Payment Method Choice */}
+            {!needsExternalOrderNo && (
             <div className="grid grid-cols-3 gap-2.5 mb-6">
               <button
                 onClick={() => setPaymentMethod('CASH')}
@@ -690,9 +735,10 @@ export default function POSTerminalPage() {
                 <CreditCard className="w-6 h-6" /> บัตรเครดิต
               </button>
             </div>
+            )}
 
             {/* Cash Input */}
-            {paymentMethod === 'CASH' && (
+            {!needsExternalOrderNo && paymentMethod === 'CASH' && (
               <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200 mb-6 space-y-3">
                 <label className="block text-xs font-bold text-stone-600 uppercase">
                   รับเงินสดมา (THB)
@@ -726,7 +772,7 @@ export default function POSTerminalPage() {
             )}
 
             {/* PromptPay QR Graphic */}
-            {paymentMethod === 'PROMPTPAY_QR' && (
+            {!needsExternalOrderNo && paymentMethod === 'PROMPTPAY_QR' && (
               <div className="bg-stone-50 p-6 rounded-2xl border border-stone-200 mb-6 text-center space-y-3">
                 <div className="w-36 h-36 mx-auto bg-white p-2 rounded-2xl flex items-center justify-center border border-stone-200">
                   <QrCode className="w-28 h-28 text-stone-900" />
@@ -776,6 +822,9 @@ export default function POSTerminalPage() {
 
               <div className="text-[10px] space-y-0.5 border-b border-dashed border-stone-400 pb-2">
                 <div>ORDER #: {completedOrder.orderNo}</div>
+                {completedOrder.externalOrderNo && (
+                  <div className="font-black">PLATFORM #: {completedOrder.externalOrderNo}</div>
+                )}
                 <div>DATE: {new Date(completedOrder.createdAt).toLocaleString('th-TH')}</div>
                 <div>CHANNEL: {completedOrder.channel?.name} (GP {completedOrder.channelGpPercent}%)</div>
                 <div>CASHIER: {completedOrder.cashier?.name}</div>

@@ -156,6 +156,7 @@ enum PaymentStatus {
 model Order {
   id               String        @id @default(uuid())
   orderNo          String        @unique // e.g. ORD-20260801-0001
+  externalOrderNo  String? // order no. from the delivery platform (LINE MAN, Grab, ...)
   channelId        String
   channel          SalesChannel  @relation(fields: [channelId], references: [id])
   customerId       String?

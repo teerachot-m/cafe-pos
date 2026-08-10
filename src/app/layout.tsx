@@ -14,7 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="h-full antialiased">
-      <body className="min-h-full flex flex-col bg-[#f7f3eb] text-slate-800 font-sans">
+      {/* suppressHydrationWarning: browser extensions (e.g. ColorZilla) inject
+          attributes into <body> before hydration and trigger false mismatches */}
+      <body suppressHydrationWarning className="min-h-full flex flex-col bg-[#f7f3eb] text-slate-800 font-sans">
         <HeaderBar />
         <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">{children}</main>
       </body>

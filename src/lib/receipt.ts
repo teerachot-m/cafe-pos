@@ -11,6 +11,7 @@ interface PrintableOrderItem {
 
 export interface PrintableOrder {
   orderNo: string;
+  externalOrderNo?: string | null;
   createdAt: string;
   channelGpPercent?: number;
   subtotal: number;
@@ -139,6 +140,7 @@ function receiptHtml(order: PrintableOrder): string {
       <div class="dashed"></div>
       <div class="sm">
         <div>ORDER #: ${esc(order.orderNo)}</div>
+        ${order.externalOrderNo ? `<div class="bold">PLATFORM #: ${esc(order.externalOrderNo)}</div>` : ''}
         <div>DATE: ${esc(dt)}</div>
         <div>CHANNEL: ${esc(order.channel?.name || '-')}${gp > 0 ? ` (GP ${gp}%)` : ''}</div>
         ${order.cashier?.name ? `<div>CASHIER: ${esc(order.cashier.name)}</div>` : ''}
@@ -169,7 +171,7 @@ function cupLabelsHtml(order: PrintableOrder): string[] {
         <div class="slip page label">
           <img class="label-logo" src="/logo_single.png" alt="HAUS BLEND" />
           <div class="row sm">
-            <span>${esc(order.orderNo)}</span>
+            <span>${esc(order.externalOrderNo || order.orderNo)}</span>
             <span>${esc(time)}</span>
             <span>${esc(order.channel?.name || '')}</span>
           </div>

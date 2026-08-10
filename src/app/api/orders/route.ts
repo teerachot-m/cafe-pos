@@ -45,6 +45,7 @@ export async function POST(req: Request) {
 
     const {
       channelId,
+      externalOrderNo,
       customerId,
       items,
       paymentMethod,
@@ -153,6 +154,7 @@ export async function POST(req: Request) {
       const order = await tx.order.create({
         data: {
           orderNo,
+          externalOrderNo: externalOrderNo ? String(externalOrderNo).trim() : null,
           channelId: channel.id,
           customerId: customer ? customer.id : null,
           cashierId: session.id,

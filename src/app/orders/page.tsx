@@ -116,7 +116,14 @@ export default function OrderQueuePage() {
                 </div>
 
                 <div className="py-2 text-[11px] text-stone-500 flex items-center justify-between">
-                  <span>ช่องทาง: <strong className="text-stone-800">{ord.channel?.name}</strong></span>
+                  <span>
+                    ช่องทาง: <strong className="text-stone-800">{ord.channel?.name}</strong>
+                    {ord.externalOrderNo && (
+                      <span className="ml-1.5 px-1.5 py-0.5 bg-amber-100 text-amber-900 rounded font-mono font-bold">
+                        #{ord.externalOrderNo}
+                      </span>
+                    )}
+                  </span>
                   <span>{new Date(ord.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
 
