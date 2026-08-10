@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Clock, Printer, CheckCircle2, XCircle, RefreshCw } from 'lucide-react';
+import { Clock, Printer, CheckCircle2, XCircle, RefreshCw, Tags } from 'lucide-react';
+import { printReceipt, printCupLabels } from '@/lib/receipt';
 
 export default function OrderQueuePage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -199,10 +200,16 @@ export default function OrderQueuePage() {
 
             <div className="flex gap-2">
               <button
-                onClick={() => window.print()}
-                className="flex-1 py-2.5 bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs"
+                onClick={() => printReceipt(selectedOrderForSlip)}
+                className="flex-1 py-2.5 bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5"
               >
-                พิมพ์สลิป
+                <Printer className="w-4 h-4" /> พิมพ์ใบเสร็จ
+              </button>
+              <button
+                onClick={() => printCupLabels(selectedOrderForSlip)}
+                className="flex-1 py-2.5 bg-stone-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5"
+              >
+                <Tags className="w-4 h-4" /> สลิปติดแก้ว
               </button>
               <button
                 onClick={() => setSelectedOrderForSlip(null)}

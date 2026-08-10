@@ -17,7 +17,9 @@ import {
   CreditCard,
   Banknote,
   Percent,
+  Tags,
 } from 'lucide-react';
+import { printReceipt, printCupLabels } from '@/lib/receipt';
 
 interface Category {
   id: string;
@@ -819,10 +821,16 @@ export default function POSTerminalPage() {
 
             <div className="flex gap-3">
               <button
-                onClick={() => window.print()}
+                onClick={() => printReceipt(completedOrder)}
                 className="flex-1 py-3 rounded-2xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
               >
-                <Printer className="w-4 h-4" /> พิมพ์สลิป (Print Slip)
+                <Printer className="w-4 h-4" /> พิมพ์ใบเสร็จ
+              </button>
+              <button
+                onClick={() => printCupLabels(completedOrder)}
+                className="flex-1 py-3 rounded-2xl bg-stone-800 hover:bg-stone-900 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <Tags className="w-4 h-4" /> สลิปติดแก้ว
               </button>
               <button
                 onClick={() => setCompletedOrder(null)}
