@@ -61,10 +61,6 @@ function printHtml(bodyHtml: string) {
     html, body { margin: 0; padding: 0; width: 80mm; background: #fff; color: #000; }
     body { font-family: 'Courier New', 'Sarabun', monospace; font-size: 12px; line-height: 1.45; }
     .slip { width: 80mm; padding: 3mm; }
-    /* Each .page ends with a page break → printers with an auto-cutter
-       (e.g. Citizen CT-D150 with "cut per page" enabled) cut after every slip. */
-    .page { break-after: page; page-break-after: always; }
-    .page:last-child { break-after: auto; page-break-after: auto; }
     .center { text-align: center; }
     .row { display: flex; justify-content: space-between; gap: 8px; }
     .dashed { border-top: 1px dashed #000; margin: 5px 0; }
@@ -75,8 +71,9 @@ function printHtml(bodyHtml: string) {
     .bold { font-weight: bold; }
     .sm { font-size: 10px; }
     .opt { padding-left: 10px; font-size: 10px; }
-    /* Compact cup label: 80 x 25mm */
+    /* Compact cup label: 80mm wide, ~25mm tall */
     .label { min-height: 25mm; padding: 2mm 3mm; border-top: 1px dashed #000; }
+    .label-logo { width: 18mm; display: block; margin: 0 auto 1mm; }
     .label-name { font-size: 15px; font-weight: bold; line-height: 1.25; }
     .label-cup { font-size: 11px; }
   </style></head><body>${bodyHtml}</body></html>`);
@@ -92,19 +89,17 @@ function printHtml(bodyHtml: string) {
             img.onload = img.onerror = () => res(null);
           })
     )
+  ).then(
+    // Let layout/fonts settle before measuring
+    () => new Promise((res) => setTimeout(res, 100))
   ).then(() => {
-    // Measure each slip and emit a named @page sized exactly to its content,
-    // so the printed pages are only as tall as the slips themselves.
+    // One continuous portrait page sized exactly to the content: the printed
+    // strip is as long as the slips, and (since height always exceeds the
+    // 80mm width) it can never be rotated to landscape by the driver.
     const PX_PER_MM = 96 / 25.4;
-    const pages = Array.from(doc.querySelectorAll<HTMLElement>('.page'));
-    let sizeCss = '';
-    pages.forEach((p, i) => {
-      const hMm = Math.ceil(p.getBoundingClientRect().height / PX_PER_MM) + 1;
-      p.classList.add(`p${i}`);
-      sizeCss += `@page pg${i} { size: 80mm ${hMm}mm; margin: 0; } .p${i} { page: pg${i}; }\n`;
-    });
+    const hMm = Math.max(81, Math.ceil(doc.body.scrollHeight / PX_PER_MM) + 2);
     const sizeStyle = doc.createElement('style');
-    sizeStyle.textContent = sizeCss;
+    sizeStyle.textContent = `@page { size: 80mm ${hMm}mm; margin: 0; }`;
     doc.head.appendChild(sizeStyle);
 
     win.focus();
@@ -172,6 +167,7 @@ function cupLabelsHtml(order: PrintableOrder): string[] {
     for (let cup = 1; cup <= it.quantity; cup++) {
       labels.push(`
         <div class="slip page label">
+          <img class="label-logo" src="/logo_single.png" alt="HAUS BLEND" />
           <div class="row sm">
             <span>${esc(order.orderNo)}</span>
             <span>${esc(time)}</span>
