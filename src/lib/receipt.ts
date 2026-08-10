@@ -62,6 +62,9 @@ function printHtml(bodyHtml: string) {
     html, body { margin: 0; padding: 0; width: 80mm; background: #fff; color: #000; }
     body { font-family: 'Courier New', 'Sarabun', monospace; font-size: 12px; line-height: 1.45; }
     .slip { width: 80mm; padding: 3mm; }
+    /* One printed page per slip — auto-cutter printers cut between pages */
+    .page { break-after: page; page-break-after: always; }
+    .page:last-child { break-after: auto; page-break-after: auto; }
     .center { text-align: center; }
     .row { display: flex; justify-content: space-between; gap: 8px; }
     .dashed { border-top: 1px dashed #000; margin: 5px 0; }
@@ -94,13 +97,21 @@ function printHtml(bodyHtml: string) {
     // Let layout/fonts settle before measuring
     () => new Promise((res) => setTimeout(res, 100))
   ).then(() => {
-    // One continuous portrait page sized exactly to the content: the printed
-    // strip is as long as the slips, and (since height always exceeds the
-    // 80mm width) it can never be rotated to landscape by the driver.
+    // Each slip gets its own named @page sized to its content. Height is
+    // clamped to >= 81mm so every page stays portrait (height > 80mm width);
+    // a landscape page would get rotated by the roll-printer driver. Receipt
+    // printers stop feeding at the end of the printed data before cutting,
+    // so short slips still come out short.
     const PX_PER_MM = 96 / 25.4;
-    const hMm = Math.max(81, Math.ceil(doc.body.scrollHeight / PX_PER_MM) + 2);
+    const pages = Array.from(doc.querySelectorAll<HTMLElement>('.page'));
+    let sizeCss = '';
+    pages.forEach((p, i) => {
+      const hMm = Math.max(81, Math.ceil(p.getBoundingClientRect().height / PX_PER_MM) + 2);
+      p.classList.add(`p${i}`);
+      sizeCss += `@page pg${i} { size: 80mm ${hMm}mm; margin: 0; } .p${i} { page: pg${i}; }\n`;
+    });
     const sizeStyle = doc.createElement('style');
-    sizeStyle.textContent = `@page { size: 80mm ${hMm}mm; margin: 0; }`;
+    sizeStyle.textContent = sizeCss;
     doc.head.appendChild(sizeStyle);
 
     win.focus();
