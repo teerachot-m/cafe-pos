@@ -3,11 +3,39 @@
 import React, { useEffect, useState } from 'react';
 import { Clock, Printer, CheckCircle2, XCircle, RefreshCw, Tags } from 'lucide-react';
 import { printReceipt, printCupLabels, printOrderSlips } from '@/lib/receipt';
+import { printOrderDirect, pairPrinter, isDirectPrintSupported } from '@/lib/escpos';
 
 export default function OrderQueuePage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<string>('ALL');
   const [selectedOrderForSlip, setSelectedOrderForSlip] = useState<any | null>(null);
+  const [directPrintAvailable, setDirectPrintAvailable] = useState(false);
+
+  useEffect(() => {
+    setDirectPrintAvailable(isDirectPrintSupported());
+  }, []);
+
+  // Raw ESC/POS first (exact length + auto cut); browser dialog as fallback
+  const printDirectOrFallback = async (
+    order: any,
+    parts: { receipt?: boolean; labels?: boolean },
+    fallback: () => void
+  ) => {
+    try {
+      await printOrderDirect(order, parts);
+    } catch {
+      fallback();
+    }
+  };
+
+  const handlePairPrinter = async () => {
+    try {
+      const name = await pairPrinter();
+      alert(`เชื่อมต่อเครื่องพิมพ์แล้ว (${name})`);
+    } catch (e: any) {
+      alert(`เชื่อมต่อไม่สำเร็จ: ${e?.message || e}`);
+    }
+  };
 
   const fetchOrders = () => {
     fetch('/api/orders')
@@ -207,20 +235,32 @@ export default function OrderQueuePage() {
 
             <div className="space-y-2">
               <button
-                onClick={() => printOrderSlips(selectedOrderForSlip)}
+                onClick={() =>
+                  printDirectOrFallback(selectedOrderForSlip, { receipt: true, labels: true }, () =>
+                    printOrderSlips(selectedOrderForSlip)
+                  )
+                }
                 className="w-full py-2.5 bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5"
               >
                 <Printer className="w-4 h-4" /> พิมพ์ใบเสร็จ + สลิปติดแก้ว
               </button>
               <div className="flex gap-2">
                 <button
-                  onClick={() => printReceipt(selectedOrderForSlip)}
+                  onClick={() =>
+                    printDirectOrFallback(selectedOrderForSlip, { receipt: true }, () =>
+                      printReceipt(selectedOrderForSlip)
+                    )
+                  }
                   className="flex-1 py-2.5 bg-stone-100 border border-stone-300 text-stone-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
                 >
                   <Printer className="w-3.5 h-3.5" /> ใบเสร็จ
                 </button>
                 <button
-                  onClick={() => printCupLabels(selectedOrderForSlip)}
+                  onClick={() =>
+                    printDirectOrFallback(selectedOrderForSlip, { labels: true }, () =>
+                      printCupLabels(selectedOrderForSlip)
+                    )
+                  }
                   className="flex-1 py-2.5 bg-stone-100 border border-stone-300 text-stone-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
                 >
                   <Tags className="w-3.5 h-3.5" /> สลิปแก้ว
@@ -232,6 +272,14 @@ export default function OrderQueuePage() {
                   ปิด
                 </button>
               </div>
+              {directPrintAvailable && (
+                <button
+                  onClick={handlePairPrinter}
+                  className="w-full py-1.5 text-[10px] font-bold text-stone-500 hover:text-emerald-800 underline underline-offset-2"
+                >
+                  🖨 เชื่อมต่อเครื่องพิมพ์ USB (ตัดกระดาษพอดีอัตโนมัติ)
+                </button>
+              )}
             </div>
           </div>
         </div>

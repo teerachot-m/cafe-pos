@@ -20,6 +20,7 @@ import {
   Tags,
 } from 'lucide-react';
 import { printReceipt, printCupLabels, printOrderSlips } from '@/lib/receipt';
+import { printOrderDirect, pairPrinter, isDirectPrintSupported } from '@/lib/escpos';
 
 interface Category {
   id: string;
@@ -93,6 +94,34 @@ export default function POSTerminalPage() {
 
   // External platform order no. (required for non-storefront channels)
   const [externalOrderNo, setExternalOrderNo] = useState('');
+
+  // Direct USB/serial printing (ESC/POS) — set in effect to avoid SSR mismatch
+  const [directPrintAvailable, setDirectPrintAvailable] = useState(false);
+  useEffect(() => {
+    setDirectPrintAvailable(isDirectPrintSupported());
+  }, []);
+
+  // Try raw ESC/POS first (exact length + auto cut); fall back to the browser dialog
+  const printDirectOrFallback = async (
+    order: any,
+    parts: { receipt?: boolean; labels?: boolean },
+    fallback: () => void
+  ) => {
+    try {
+      await printOrderDirect(order, parts);
+    } catch {
+      fallback();
+    }
+  };
+
+  const handlePairPrinter = async () => {
+    try {
+      const name = await pairPrinter();
+      alert(`เชื่อมต่อเครื่องพิมพ์แล้ว (${name}) — การพิมพ์จะตัดพอดีทุกใบโดยไม่มีหน้าต่างพิมพ์`);
+    } catch (e: any) {
+      alert(`เชื่อมต่อไม่สำเร็จ: ${e?.message || e}`);
+    }
+  };
 
   // Customer CRM State
   const [customerPhone, setCustomerPhone] = useState('');
@@ -870,20 +899,32 @@ export default function POSTerminalPage() {
 
             <div className="space-y-2">
               <button
-                onClick={() => printOrderSlips(completedOrder)}
+                onClick={() =>
+                  printDirectOrFallback(completedOrder, { receipt: true, labels: true }, () =>
+                    printOrderSlips(completedOrder)
+                  )
+                }
                 className="w-full py-3 rounded-2xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
               >
                 <Printer className="w-4 h-4" /> พิมพ์ใบเสร็จ + สลิปติดแก้ว
               </button>
               <div className="flex gap-2">
                 <button
-                  onClick={() => printReceipt(completedOrder)}
+                  onClick={() =>
+                    printDirectOrFallback(completedOrder, { receipt: true }, () =>
+                      printReceipt(completedOrder)
+                    )
+                  }
                   className="flex-1 py-2.5 rounded-2xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 font-bold text-xs flex items-center justify-center gap-1.5"
                 >
                   <Printer className="w-3.5 h-3.5" /> ใบเสร็จ
                 </button>
                 <button
-                  onClick={() => printCupLabels(completedOrder)}
+                  onClick={() =>
+                    printDirectOrFallback(completedOrder, { labels: true }, () =>
+                      printCupLabels(completedOrder)
+                    )
+                  }
                   className="flex-1 py-2.5 rounded-2xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 font-bold text-xs flex items-center justify-center gap-1.5"
                 >
                   <Tags className="w-3.5 h-3.5" /> สลิปแก้ว
@@ -895,6 +936,14 @@ export default function POSTerminalPage() {
                   เสร็จสิ้น
                 </button>
               </div>
+              {directPrintAvailable && (
+                <button
+                  onClick={handlePairPrinter}
+                  className="w-full py-2 text-[10px] font-bold text-stone-500 hover:text-emerald-800 underline underline-offset-2"
+                >
+                  🖨 เชื่อมต่อเครื่องพิมพ์ USB (ตัดกระดาษพอดีอัตโนมัติ ไม่มีหน้าต่างพิมพ์)
+                </button>
+              )}
             </div>
           </div>
         </div>
