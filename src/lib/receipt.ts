@@ -71,11 +71,14 @@ function printHtml(bodyHtml: string) {
     .solid { border-top: 1px solid #000; margin: 5px 0; }
     .cut { border-top: 1px dashed #000; margin: 7px 0 6px; text-align: center; font-size: 10px; }
     .logo { width: 32mm; display: block; margin: 0 auto 2mm; }
-    .logo-sm { width: 22mm; display: block; margin: 0 auto 1mm; }
     .big { font-size: 15px; font-weight: bold; }
     .bold { font-weight: bold; }
     .sm { font-size: 10px; }
     .opt { padding-left: 10px; font-size: 10px; }
+    /* Compact cup label: 80 x 25mm */
+    .label { min-height: 25mm; padding: 2mm 3mm; border-top: 1px dashed #000; }
+    .label-name { font-size: 15px; font-weight: bold; line-height: 1.25; }
+    .label-cup { font-size: 11px; }
   </style></head><body>${bodyHtml}</body></html>`);
   doc.close();
 
@@ -168,16 +171,14 @@ function cupLabelsHtml(order: PrintableOrder): string[] {
     const opts = parseOptions(it.selectedOptionsJson);
     for (let cup = 1; cup <= it.quantity; cup++) {
       labels.push(`
-        <div class="slip page">
-          <img class="logo-sm" src="/logo_single.png" alt="HAUS BLEND" />
-          <div class="row sm"><span>${esc(order.orderNo)}</span><span>${esc(time)}</span></div>
-          <div class="big">${esc(it.productName)}</div>
-          ${opts.map((o) => `<div class="opt">- ${esc(o)}</div>`).join('')}
+        <div class="slip page label">
           <div class="row sm">
-            <span>แก้ว ${cup}/${it.quantity}</span>
+            <span>${esc(order.orderNo)}</span>
+            <span>${esc(time)}</span>
             <span>${esc(order.channel?.name || '')}</span>
           </div>
-          <div class="cut">✂ - - - - - - - - - - - - - - - - ✂</div>
+          <div class="label-name">${esc(it.productName)} <span class="label-cup">(${cup}/${it.quantity})</span></div>
+          ${opts.length ? `<div class="sm">${opts.map(esc).join(' · ')}</div>` : ''}
         </div>`);
     }
   }
