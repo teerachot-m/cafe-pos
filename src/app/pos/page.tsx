@@ -19,7 +19,7 @@ import {
   Percent,
   Tags,
 } from 'lucide-react';
-import { printReceipt, printCupLabels } from '@/lib/receipt';
+import { printReceipt, printCupLabels, printOrderSlips } from '@/lib/receipt';
 
 interface Category {
   id: string;
@@ -819,25 +819,33 @@ export default function POSTerminalPage() {
               </div>
             </div>
 
-            <div className="flex gap-3">
+            <div className="space-y-2">
               <button
-                onClick={() => printReceipt(completedOrder)}
-                className="flex-1 py-3 rounded-2xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
+                onClick={() => printOrderSlips(completedOrder)}
+                className="w-full py-3 rounded-2xl bg-emerald-800 hover:bg-emerald-900 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
               >
-                <Printer className="w-4 h-4" /> พิมพ์ใบเสร็จ
+                <Printer className="w-4 h-4" /> พิมพ์ใบเสร็จ + สลิปติดแก้ว
               </button>
-              <button
-                onClick={() => printCupLabels(completedOrder)}
-                className="flex-1 py-3 rounded-2xl bg-stone-800 hover:bg-stone-900 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                <Tags className="w-4 h-4" /> สลิปติดแก้ว
-              </button>
-              <button
-                onClick={() => setCompletedOrder(null)}
-                className="px-4 py-3 rounded-2xl bg-stone-200 hover:bg-stone-300 text-stone-700 font-bold text-xs"
-              >
-                เสร็จสิ้น
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => printReceipt(completedOrder)}
+                  className="flex-1 py-2.5 rounded-2xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 font-bold text-xs flex items-center justify-center gap-1.5"
+                >
+                  <Printer className="w-3.5 h-3.5" /> ใบเสร็จ
+                </button>
+                <button
+                  onClick={() => printCupLabels(completedOrder)}
+                  className="flex-1 py-2.5 rounded-2xl bg-stone-100 hover:bg-stone-200 border border-stone-300 text-stone-700 font-bold text-xs flex items-center justify-center gap-1.5"
+                >
+                  <Tags className="w-3.5 h-3.5" /> สลิปแก้ว
+                </button>
+                <button
+                  onClick={() => setCompletedOrder(null)}
+                  className="flex-1 py-2.5 rounded-2xl bg-stone-800 hover:bg-stone-900 text-white font-bold text-xs"
+                >
+                  เสร็จสิ้น
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -57,6 +57,10 @@ function printHtml(bodyHtml: string) {
     html, body { margin: 0; padding: 0; width: 80mm; background: #fff; color: #000; }
     body { font-family: 'Courier New', 'Sarabun', monospace; font-size: 12px; line-height: 1.45; }
     .slip { width: 80mm; padding: 3mm; }
+    /* Each .page ends with a page break → printers with an auto-cutter
+       (e.g. Citizen CT-D150 with "cut per page" enabled) cut after every slip. */
+    .page { break-after: page; page-break-after: always; }
+    .page:last-child { break-after: auto; page-break-after: auto; }
     .center { text-align: center; }
     .row { display: flex; justify-content: space-between; gap: 8px; }
     .dashed { border-top: 1px dashed #000; margin: 5px 0; }
@@ -88,8 +92,7 @@ function printHtml(bodyHtml: string) {
   });
 }
 
-/** Full receipt slip — one per order. */
-export function printReceipt(order: PrintableOrder) {
+function receiptHtml(order: PrintableOrder): string {
   const dt = new Date(order.createdAt).toLocaleString('th-TH');
   const gp = order.channelGpPercent ?? 0;
 
@@ -110,8 +113,8 @@ export function printReceipt(order: PrintableOrder) {
       ? `<div class="row"><span>POINT DISCOUNT:</span><span>-฿${order.pointDiscount!.toFixed(2)}</span></div>`
       : '';
 
-  printHtml(`
-    <div class="slip">
+  return `
+    <div class="slip page">
       <div class="center">
         <img class="logo" src="/logo_single.png" alt="HAUS BLEND" />
         <div class="sm">Bangkok, Thailand</div>
@@ -133,11 +136,10 @@ export function printReceipt(order: PrintableOrder) {
       <div class="row big"><span>TOTAL NET:</span><span>฿${order.netTotal.toFixed(2)}</span></div>
       <div class="dashed"></div>
       <div class="center sm">THANK YOU FOR YOUR VISIT!</div>
-    </div>`);
+    </div>`;
 }
 
-/** Cup labels — one small slip per cup (quantity 2 → 2 labels), with cut lines. */
-export function printCupLabels(order: PrintableOrder) {
+function cupLabelsHtml(order: PrintableOrder): string[] {
   const time = new Date(order.createdAt).toLocaleTimeString('th-TH', {
     hour: '2-digit',
     minute: '2-digit',
@@ -148,7 +150,7 @@ export function printCupLabels(order: PrintableOrder) {
     const opts = parseOptions(it.selectedOptionsJson);
     for (let cup = 1; cup <= it.quantity; cup++) {
       labels.push(`
-        <div class="slip">
+        <div class="slip page">
           <img class="logo-sm" src="/logo_single.png" alt="HAUS BLEND" />
           <div class="row sm"><span>${esc(order.orderNo)}</span><span>${esc(time)}</span></div>
           <div class="big">${esc(it.productName)}</div>
@@ -157,10 +159,30 @@ export function printCupLabels(order: PrintableOrder) {
             <span>แก้ว ${cup}/${it.quantity}</span>
             <span>${esc(order.channel?.name || '')}</span>
           </div>
+          <div class="cut">✂ - - - - - - - - - - - - - - - - ✂</div>
         </div>`);
     }
   }
+  return labels;
+}
 
+/** Full receipt slip — one per order. */
+export function printReceipt(order: PrintableOrder) {
+  printHtml(receiptHtml(order));
+}
+
+/** Cup labels — one small slip per cup (quantity 2 → 2 labels). */
+export function printCupLabels(order: PrintableOrder) {
+  const labels = cupLabelsHtml(order);
   if (labels.length === 0) return;
-  printHtml(labels.join('<div class="cut">✂ - - - - - - - - - - - - - - - - ✂</div>'));
+  printHtml(labels.join(''));
+}
+
+/**
+ * One print job: receipt first, then every cup label.
+ * Each slip is its own printed page, so printers with an auto-cutter
+ * (Citizen CT-D150 etc., driver set to cut per page) cut between slips.
+ */
+export function printOrderSlips(order: PrintableOrder) {
+  printHtml(receiptHtml(order) + cupLabelsHtml(order).join(''));
 }

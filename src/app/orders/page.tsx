@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Clock, Printer, CheckCircle2, XCircle, RefreshCw, Tags } from 'lucide-react';
-import { printReceipt, printCupLabels } from '@/lib/receipt';
+import { printReceipt, printCupLabels, printOrderSlips } from '@/lib/receipt';
 
 export default function OrderQueuePage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -198,25 +198,33 @@ export default function OrderQueuePage() {
               </div>
             </div>
 
-            <div className="flex gap-2">
+            <div className="space-y-2">
               <button
-                onClick={() => printReceipt(selectedOrderForSlip)}
-                className="flex-1 py-2.5 bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5"
+                onClick={() => printOrderSlips(selectedOrderForSlip)}
+                className="w-full py-2.5 bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5"
               >
-                <Printer className="w-4 h-4" /> พิมพ์ใบเสร็จ
+                <Printer className="w-4 h-4" /> พิมพ์ใบเสร็จ + สลิปติดแก้ว
               </button>
-              <button
-                onClick={() => printCupLabels(selectedOrderForSlip)}
-                className="flex-1 py-2.5 bg-stone-800 text-white font-bold text-xs rounded-xl shadow-xs flex items-center justify-center gap-1.5"
-              >
-                <Tags className="w-4 h-4" /> สลิปติดแก้ว
-              </button>
-              <button
-                onClick={() => setSelectedOrderForSlip(null)}
-                className="px-4 py-2.5 bg-stone-200 text-stone-700 font-bold text-xs rounded-xl"
-              >
-                ปิด
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => printReceipt(selectedOrderForSlip)}
+                  className="flex-1 py-2.5 bg-stone-100 border border-stone-300 text-stone-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
+                >
+                  <Printer className="w-3.5 h-3.5" /> ใบเสร็จ
+                </button>
+                <button
+                  onClick={() => printCupLabels(selectedOrderForSlip)}
+                  className="flex-1 py-2.5 bg-stone-100 border border-stone-300 text-stone-700 font-bold text-xs rounded-xl flex items-center justify-center gap-1.5"
+                >
+                  <Tags className="w-3.5 h-3.5" /> สลิปแก้ว
+                </button>
+                <button
+                  onClick={() => setSelectedOrderForSlip(null)}
+                  className="flex-1 py-2.5 bg-stone-200 text-stone-700 font-bold text-xs rounded-xl"
+                >
+                  ปิด
+                </button>
+              </div>
             </div>
           </div>
         </div>
