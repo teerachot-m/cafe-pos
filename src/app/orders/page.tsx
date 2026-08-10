@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Clock, Printer, CheckCircle2, XCircle, RefreshCw, Tags } from 'lucide-react';
 import { printReceipt, printCupLabels, printOrderSlips } from '@/lib/receipt';
-import { printOrderDirect, pairPrinter, isDirectPrintSupported } from '@/lib/escpos';
+import { printOrderDirect, pairPrinterUsb, pairPrinterSerial, isDirectPrintSupported } from '@/lib/escpos';
 
 export default function OrderQueuePage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -28,9 +28,9 @@ export default function OrderQueuePage() {
     }
   };
 
-  const handlePairPrinter = async () => {
+  const handlePairPrinter = async (mode: 'usb' | 'serial') => {
     try {
-      const name = await pairPrinter();
+      const name = mode === 'usb' ? await pairPrinterUsb() : await pairPrinterSerial();
       alert(`เชื่อมต่อเครื่องพิมพ์แล้ว (${name})`);
     } catch (e: any) {
       alert(`เชื่อมต่อไม่สำเร็จ: ${e?.message || e}`);
@@ -273,12 +273,20 @@ export default function OrderQueuePage() {
                 </button>
               </div>
               {directPrintAvailable && (
-                <button
-                  onClick={handlePairPrinter}
-                  className="w-full py-1.5 text-[10px] font-bold text-stone-500 hover:text-emerald-800 underline underline-offset-2"
-                >
-                  🖨 เชื่อมต่อเครื่องพิมพ์ USB (ตัดกระดาษพอดีอัตโนมัติ)
-                </button>
+                <div className="flex gap-2 justify-center">
+                  <button
+                    onClick={() => handlePairPrinter('usb')}
+                    className="py-1.5 text-[10px] font-bold text-stone-500 hover:text-emerald-800 underline underline-offset-2"
+                  >
+                    🖨 เชื่อมต่อแบบ USB
+                  </button>
+                  <button
+                    onClick={() => handlePairPrinter('serial')}
+                    className="py-1.5 text-[10px] font-bold text-stone-500 hover:text-emerald-800 underline underline-offset-2"
+                  >
+                    🔌 เชื่อมต่อแบบ COM (Virtual COM)
+                  </button>
+                </div>
               )}
             </div>
           </div>

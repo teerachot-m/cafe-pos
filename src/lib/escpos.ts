@@ -87,25 +87,40 @@ export function isDirectPrintSupported(): boolean {
   return 'usb' in navigator || 'serial' in navigator;
 }
 
-/** Interactive pairing (must be called from a click). USB first, then serial. */
-export async function pairPrinter(): Promise<string> {
-  const nav = navigator as any;
-  if (nav.usb) {
-    try {
-      const device = await nav.usb.requestDevice({ filters: [] });
-      activeTransport = await openUsbTransport(device);
-      return `USB: ${device.productName || 'printer'}`;
-    } catch (e: any) {
-      // fall through to serial when the user cancelled or claim failed
-      if (!nav.serial) throw e;
-    }
+function friendlyPairError(e: any): Error {
+  const msg = String(e?.message || e);
+  if (/no (device|port) selected|notfounderror/i.test(msg)) {
+    return new Error(
+      'ยังไม่ได้เลือกอุปกรณ์ — ในหน้าต่างที่เด้งขึ้นมา ให้คลิกชื่อเครื่องพิมพ์/พอร์ต COM ก่อน แล้วจึงกดปุ่ม Connect'
+    );
   }
-  if (nav.serial) {
+  return new Error(msg);
+}
+
+/** Pair over WebUSB (must be called from a click). */
+export async function pairPrinterUsb(): Promise<string> {
+  const nav = navigator as any;
+  if (!nav.usb) throw new Error('เบราว์เซอร์นี้ไม่รองรับ WebUSB (ใช้ Chrome หรือ Edge)');
+  try {
+    const device = await nav.usb.requestDevice({ filters: [] });
+    activeTransport = await openUsbTransport(device);
+    return `USB: ${device.productName || 'printer'}`;
+  } catch (e) {
+    throw friendlyPairError(e);
+  }
+}
+
+/** Pair over Web Serial — for Citizen Virtual COM and other COM-port setups. */
+export async function pairPrinterSerial(): Promise<string> {
+  const nav = navigator as any;
+  if (!nav.serial) throw new Error('เบราว์เซอร์นี้ไม่รองรับ Web Serial (ใช้ Chrome หรือ Edge)');
+  try {
     const port = await nav.serial.requestPort();
     activeTransport = await openSerialTransport(port);
     return 'Serial (COM)';
+  } catch (e) {
+    throw friendlyPairError(e);
   }
-  throw new Error('เบราว์เซอร์นี้ไม่รองรับ WebUSB / Web Serial (ใช้ Chrome หรือ Edge)');
 }
 
 /** Silent reconnect to a previously authorized device. */
