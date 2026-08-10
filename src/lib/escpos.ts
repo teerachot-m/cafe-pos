@@ -62,7 +62,10 @@ async function openUsbTransport(device: any): Promise<Transport> {
 
 async function openSerialTransport(port: any): Promise<Transport> {
   if (!port.readable && !port.writable) {
-    await port.open({ baudRate: 115200 });
+    // ponytail: must match the printer's own MSW7-1 memory switch (factory
+    // default 9600bps) — a mismatched baud rate silently drops data with no
+    // error on either side.
+    await port.open({ baudRate: 9600 });
   }
   return {
     async write(data: Uint8Array) {
