@@ -36,13 +36,17 @@ const parseOptions = (json?: string | null): string[] => {
 
 function printHtml(bodyHtml: string) {
   const iframe = document.createElement('iframe');
+  // Real (but invisible) size so the document lays out at true 80mm width —
+  // required for measuring each slip's height before printing.
   Object.assign(iframe.style, {
     position: 'fixed',
     right: '0',
     bottom: '0',
-    width: '0',
-    height: '0',
+    width: '340px',
+    height: '10px',
     border: '0',
+    opacity: '0',
+    pointerEvents: 'none',
   });
   document.body.appendChild(iframe);
 
@@ -86,6 +90,20 @@ function printHtml(bodyHtml: string) {
           })
     )
   ).then(() => {
+    // Measure each slip and emit a named @page sized exactly to its content,
+    // so the printed pages are only as tall as the slips themselves.
+    const PX_PER_MM = 96 / 25.4;
+    const pages = Array.from(doc.querySelectorAll<HTMLElement>('.page'));
+    let sizeCss = '';
+    pages.forEach((p, i) => {
+      const hMm = Math.ceil(p.getBoundingClientRect().height / PX_PER_MM) + 1;
+      p.classList.add(`p${i}`);
+      sizeCss += `@page pg${i} { size: 80mm ${hMm}mm; margin: 0; } .p${i} { page: pg${i}; }\n`;
+    });
+    const sizeStyle = doc.createElement('style');
+    sizeStyle.textContent = sizeCss;
+    doc.head.appendChild(sizeStyle);
+
     win.focus();
     win.print();
     setTimeout(() => iframe.remove(), 3000);
