@@ -97,16 +97,17 @@ function printHtml(bodyHtml: string) {
     // Let layout/fonts settle before measuring
     () => new Promise((res) => setTimeout(res, 100))
   ).then(() => {
-    // Each slip gets its own named @page sized to its content. Height is
-    // clamped to >= 81mm so every page stays portrait (height > 80mm width);
-    // a landscape page would get rotated by the roll-printer driver. Receipt
-    // printers stop feeding at the end of the printed data before cutting,
-    // so short slips still come out short.
+    // Each slip gets its own named @page sized to its content.
+    // ponytail: no forced 81mm floor — that was padding every short cup
+    // label (~25mm) out to 81mm, causing a long blank feed before every cut
+    // on the physical printer. If a printer driver turns out to rotate
+    // short (height < 80mm width) pages to landscape, reintroduce a floor
+    // sized to the actual failure, not a blanket 81mm.
     const PX_PER_MM = 96 / 25.4;
     const pages = Array.from(doc.querySelectorAll<HTMLElement>('.page'));
     let sizeCss = '';
     pages.forEach((p, i) => {
-      const hMm = Math.max(81, Math.ceil(p.getBoundingClientRect().height / PX_PER_MM) + 2);
+      const hMm = Math.ceil(p.getBoundingClientRect().height / PX_PER_MM) + 2;
       p.classList.add(`p${i}`);
       sizeCss += `@page pg${i} { size: 80mm ${hMm}mm; margin: 0; } .p${i} { page: pg${i}; }\n`;
     });
