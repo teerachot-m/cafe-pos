@@ -123,22 +123,22 @@ export async function pairPrinterSerial(): Promise<string> {
   }
 }
 
-/** Silent reconnect to a previously authorized device. */
+/** Silent reconnect to a previously authorized device — Virtual COM first. */
 async function getTransport(): Promise<Transport | null> {
   if (activeTransport) return activeTransport;
   const nav = navigator as any;
   try {
-    if (nav.usb) {
-      const devices = await nav.usb.getDevices();
-      if (devices.length > 0) {
-        activeTransport = await openUsbTransport(devices[0]);
-        return activeTransport;
-      }
-    }
     if (nav.serial) {
       const ports = await nav.serial.getPorts();
       if (ports.length > 0) {
         activeTransport = await openSerialTransport(ports[0]);
+        return activeTransport;
+      }
+    }
+    if (nav.usb) {
+      const devices = await nav.usb.getDevices();
+      if (devices.length > 0) {
+        activeTransport = await openUsbTransport(devices[0]);
         return activeTransport;
       }
     }

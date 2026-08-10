@@ -273,18 +273,18 @@ export default function OrderQueuePage() {
                 </button>
               </div>
               {directPrintAvailable && (
-                <div className="flex gap-2 justify-center">
-                  <button
-                    onClick={() => handlePairPrinter('usb')}
-                    className="py-1.5 text-[10px] font-bold text-stone-500 hover:text-emerald-800 underline underline-offset-2"
-                  >
-                    🖨 เชื่อมต่อแบบ USB
-                  </button>
+                <div className="flex gap-2 justify-center items-center">
                   <button
                     onClick={() => handlePairPrinter('serial')}
-                    className="py-1.5 text-[10px] font-bold text-stone-500 hover:text-emerald-800 underline underline-offset-2"
+                    className="py-1.5 px-3 text-[11px] font-bold text-emerald-800 hover:text-emerald-900 underline underline-offset-2"
                   >
-                    🔌 เชื่อมต่อแบบ COM (Virtual COM)
+                    🔌 เชื่อมต่อเครื่องพิมพ์ (Virtual COM)
+                  </button>
+                  <button
+                    onClick={() => handlePairPrinter('usb')}
+                    className="py-1.5 text-[10px] font-bold text-stone-400 hover:text-emerald-800 underline underline-offset-2"
+                  >
+                    หรือแบบ USB
                   </button>
                 </div>
               )}
