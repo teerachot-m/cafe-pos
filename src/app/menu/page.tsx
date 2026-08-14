@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { BookOpen, Plus, Layers, Sparkles, Scale, ListPlus, Share2 } from 'lucide-react';
+import { BookOpen, Plus, Layers, Sparkles, Scale, ListPlus, Share2, Edit, Trash2 } from 'lucide-react';
 
 interface Category {
   id: string;
@@ -39,6 +39,9 @@ export default function MenuManagementPage() {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
 
+  // Tab State
+  const [activeTab, setActiveTab] = useState<'available' | 'unavailable'>('available');
+
   // Modal State
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [isAddCategoryOpen, setIsAddCategoryOpen] = useState(false);
@@ -47,6 +50,8 @@ export default function MenuManagementPage() {
   const [catName, setCatName] = useState('');
 
   // New Product & BOM Form
+  const [editingProduct, setEditingProduct] = useState<any | null>(null);
+  const [isAvailable, setIsAvailable] = useState(true);
   const [prodName, setProdName] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodPrice, setProdPrice] = useState('');
@@ -66,6 +71,64 @@ export default function MenuManagementPage() {
   useEffect(() => {
     reloadData();
   }, []);
+
+  const handleEditClick = (p: any) => {
+    setEditingProduct(p);
+    setProdName(p.name);
+    setProdDesc(p.description || '');
+    setProdPrice(p.price.toString());
+    setProdCategory(p.categoryId);
+    setProdImage(p.imageUrl || '');
+    setIsAvailable(p.isAvailable);
+
+    // Set BOM Rows
+    setBomRows(
+      p.recipes?.map((r: any) => ({
+        ingredientId: r.ingredientId,
+        quantityRequired: r.quantityRequired.toString(),
+      })) || []
+    );
+
+    // Set Option Groups
+    setOptionGroups(
+      p.optionGroups?.map((g: any) => ({
+        name: g.name,
+        isRequired: g.isRequired,
+        items: g.items?.map((it: any) => ({
+          name: it.name,
+          extraPrice: it.extraPrice.toString(),
+        })) || [],
+      })) || []
+    );
+
+    // Set Channel Price Map
+    const priceMap: Record<string, string> = {};
+    p.channelPrices?.forEach((cp: any) => {
+      priceMap[cp.channelId] = cp.price.toString();
+    });
+    setChannelPriceMap(priceMap);
+
+    setIsAddProductOpen(true);
+  };
+
+  const handleConfirmDelete = async (p: any) => {
+    const ok = window.confirm(`คุณแน่ใจหรือไม่ที่จะลบเมนู "${p.name}"? การดำเนินการนี้ไม่สามารถย้อนกลับได้`);
+    if (!ok) return;
+
+    try {
+      const res = await fetch(`/api/products?id=${p.id}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        reloadData();
+      } else {
+        const err = await res.json();
+        alert(`ไม่สามารถลบได้: ${err.error}`);
+      }
+    } catch (e: any) {
+      alert(`เกิดข้อผิดพลาดในการเชื่อมต่อ: ${e.message}`);
+    }
+  };
 
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,6 +202,8 @@ export default function MenuManagementPage() {
     setBomRows([]);
     setOptionGroups([]);
     setChannelPriceMap({});
+    setEditingProduct(null);
+    setIsAvailable(true);
   };
 
   const handleCreateProduct = async (e: React.FormEvent) => {
@@ -146,11 +211,13 @@ export default function MenuManagementPage() {
     if (!prodName || !prodPrice || !prodCategory) return;
 
     const payload = {
+      id: editingProduct?.id,
       name: prodName,
       description: prodDesc,
       price: parseFloat(prodPrice),
       categoryId: prodCategory,
       imageUrl: prodImage || null,
+      isAvailable: isAvailable,
       recipes: bomRows.map((r) => ({
         ingredientId: r.ingredientId,
         quantityRequired: parseFloat(r.quantityRequired),
@@ -170,7 +237,7 @@ export default function MenuManagementPage() {
     };
 
     const res = await fetch('/api/products', {
-      method: 'POST',
+      method: editingProduct ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
@@ -192,6 +259,10 @@ export default function MenuManagementPage() {
     return acc + qty * ing.costPerUnit;
   }, 0);
 
+  const availableProducts = products.filter((p) => p.isAvailable === true);
+  const unavailableProducts = products.filter((p) => p.isAvailable === false);
+  const displayedProducts = activeTab === 'available' ? availableProducts : unavailableProducts;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -211,6 +282,7 @@ export default function MenuManagementPage() {
           </button>
           <button
             onClick={() => {
+              resetProductForm();
               if (categories.length > 0) setProdCategory(categories[0].id);
               setIsAddProductOpen(true);
             }}
@@ -221,24 +293,93 @@ export default function MenuManagementPage() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex border-b border-stone-200 gap-4">
+        <button
+          onClick={() => setActiveTab('available')}
+          className={`pb-3 px-2 text-sm font-extrabold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'available'
+              ? 'border-emerald-800 text-emerald-800'
+              : 'border-transparent text-stone-500 hover:text-stone-700'
+          }`}
+        >
+          เปิดจำหน่าย
+          <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+            activeTab === 'available'
+              ? 'bg-emerald-100 text-emerald-800'
+              : 'bg-stone-100 text-stone-600'
+          }`}>
+            {availableProducts.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('unavailable')}
+          className={`pb-3 px-2 text-sm font-extrabold border-b-2 transition-all flex items-center gap-2 cursor-pointer ${
+            activeTab === 'unavailable'
+              ? 'border-emerald-800 text-emerald-800'
+              : 'border-transparent text-stone-500 hover:text-stone-700'
+          }`}
+        >
+          ปิดจำหน่าย
+          <span className={`px-2 py-0.5 text-[10px] rounded-full font-bold ${
+            activeTab === 'unavailable'
+              ? 'bg-emerald-100 text-emerald-800'
+              : 'bg-stone-100 text-stone-600'
+          }`}>
+            {unavailableProducts.length}
+          </span>
+        </button>
+      </div>
+
       {/* Products Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {products.map((p) => {
-          const cogs = p.recipes?.reduce((acc: number, r: any) => {
-            return acc + r.quantityRequired * (r.ingredient?.costPerUnit || 0);
-          }, 0) || 0;
+      {displayedProducts.length === 0 ? (
+        <div className="text-center py-16 bg-stone-50 rounded-3xl border border-stone-200 flex flex-col items-center justify-center">
+          <BookOpen className="w-10 h-10 text-stone-300 mb-2" />
+          <p className="text-stone-400 font-bold text-xs">ไม่มีรายการเมนูในหมวดหมู่นี้</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {displayedProducts.map((p) => {
+            const cogs = p.recipes?.reduce((acc: number, r: any) => {
+              return acc + r.quantityRequired * (r.ingredient?.costPerUnit || 0);
+            }, 0) || 0;
 
-          const margin = p.price > 0 ? ((p.price - cogs) / p.price) * 100 : 0;
+            const margin = p.price > 0 ? ((p.price - cogs) / p.price) * 100 : 0;
 
-          return (
-            <div key={p.id} className="cream-card rounded-3xl p-5 border border-stone-300 flex flex-col justify-between shadow-2xs">
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full border border-emerald-200">
-                    {p.category?.name || 'Category'}
-                  </span>
-                  <span className="font-black text-sm text-emerald-800 font-mono">฿{p.price.toFixed(2)}</span>
-                </div>
+            return (
+              <div key={p.id} className="cream-card rounded-3xl p-5 border border-stone-300 flex flex-col justify-between shadow-2xs">
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-bold rounded-full border border-emerald-200">
+                        {p.category?.name || 'Category'}
+                      </span>
+                      {!p.isAvailable && (
+                        <span className="px-2 py-0.5 bg-stone-200 text-stone-600 text-[10px] font-bold rounded-full border border-stone-300">
+                          ปิดจำหน่าย
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-sm text-emerald-800 font-mono">฿{p.price.toFixed(2)}</span>
+                      <button
+                        onClick={() => handleEditClick(p)}
+                        className="p-1 hover:bg-stone-100 rounded-lg border border-stone-300 text-stone-500 hover:text-emerald-800 transition-colors"
+                        title="แก้ไขเมนู"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      {!p.isAvailable && (
+                        <button
+                          onClick={() => handleConfirmDelete(p)}
+                          className="p-1 hover:bg-rose-50 rounded-lg border border-stone-300 text-stone-500 hover:text-rose-600 transition-colors"
+                          title="ลบเมนู"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
                 <h3 className="font-extrabold text-sm text-stone-800">{p.name}</h3>
                 <p className="text-xs text-stone-500 mt-1 line-clamp-2">{p.description}</p>
@@ -317,6 +458,7 @@ export default function MenuManagementPage() {
           );
         })}
       </div>
+      )}
 
       {/* Modal: Add Category */}
       {isAddCategoryOpen && (
@@ -352,7 +494,7 @@ export default function MenuManagementPage() {
         <div className="fixed inset-0 z-50 bg-stone-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <form onSubmit={handleCreateProduct} className="cream-card max-w-xl w-full rounded-3xl p-6 border border-stone-300 max-h-[90vh] overflow-y-auto">
             <h3 className="text-base font-extrabold text-stone-800 mb-4 flex items-center gap-2">
-              <Sparkles className="w-5 h-5 text-emerald-800" /> เพิ่มเมนูสินค้า & สูตร BOM
+              <Sparkles className="w-5 h-5 text-emerald-800" /> {editingProduct ? 'แก้ไขเมนูสินค้า & สูตร BOM' : 'เพิ่มเมนูสินค้า & สูตร BOM'}
             </h3>
 
             <div className="space-y-3 text-xs">
@@ -396,6 +538,19 @@ export default function MenuManagementPage() {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2 py-1.5 px-3 bg-stone-550/20 rounded-2xl border border-stone-300 w-fit">
+                <input
+                  type="checkbox"
+                  id="prodAvailable"
+                  checked={isAvailable}
+                  onChange={(e) => setIsAvailable(e.target.checked)}
+                  className="w-4 h-4 text-emerald-850 border-stone-350 rounded focus:ring-emerald-700 cursor-pointer"
+                />
+                <label htmlFor="prodAvailable" className="text-stone-700 font-bold select-none cursor-pointer">
+                  พร้อมจำหน่าย (Available)
+                </label>
               </div>
 
               <div>
@@ -611,7 +766,7 @@ export default function MenuManagementPage() {
                 type="submit"
                 className="flex-1 py-3 bg-emerald-800 text-white font-bold rounded-2xl shadow-md"
               >
-                บันทึกเมนู & สูตร
+                {editingProduct ? 'บันทึกการแก้ไข' : 'บันทึกเมนู & สูตร'}
               </button>
             </div>
           </form>
