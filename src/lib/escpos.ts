@@ -380,15 +380,25 @@ async function renderReceipt(
   await ensureFontLoaded();
   const p = new SlipPainter();
   const logo = await loadLogo();
-  if (order.externalOrderNo) {
-    p.text(`${order.channel?.name || "-"}`, { size: 30, bold: true });
-    p.text(`${order.externalOrderNo}`, { size: 40, bold: true });
-  }
+  p.space(8);
   if (logo) {
     p.image(logo, 300);
-    p.space(4);
+    p.space(2);
   }
   p.text("Bond St. Muangthongthani", { size: 20, align: "center" });
+  p.space(4);
+  if (order.externalOrderNo) {
+    p.text(`${order.channel?.name || "-"}`, {
+      size: 30,
+      align: "center",
+    });
+    p.text(`${order.externalOrderNo}`, {
+      size: 40,
+      bold: true,
+      align: "center",
+    });
+  }
+  p.space(4);
   // p.text('TEL: 02-123-4567', { size: 20, align: 'center' });
   p.line();
   p.row(
@@ -423,7 +433,7 @@ async function renderReceipt(
     bold: true,
   });
   p.line();
-  p.text("Brew with ♡", { size: 20, align: "center" });
+  p.text("We brew with ♡", { size: 20, align: "center" });
   return p.finish();
 }
 
@@ -447,8 +457,9 @@ async function renderLabel(
     hour: "2-digit",
     minute: "2-digit",
   });
-  p.text(
-    order.channel?.name || "" + " " + order.externalOrderNo || order.orderNo,
+  p.row(
+    order.channel?.name || "" + " " + order.externalOrderNo || "",
+    order.orderNo || "",
     { size: 20 },
   );
   p.text(`${item.productName} (${cup}/${item.quantity})`, {
