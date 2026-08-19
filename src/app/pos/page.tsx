@@ -842,7 +842,7 @@ export default function POSTerminalPage() {
             </div>
 
             {/* Thermal Slip Printable Area */}
-            <div id="thermal-slip" className="bg-white text-stone-900 p-4 rounded-xl font-mono text-xs border border-stone-300 shadow-inner mb-6 space-y-2">
+            <div id="thermal-slip" className="bg-white text-stone-900 p-4 rounded-xl font-thermal text-xs border border-stone-300 shadow-inner mb-6 space-y-2">
               <div className="text-center border-b border-dashed border-stone-400 pb-2">
                 <img src="/logo_single.png" alt="HAUS BLEND" className="w-36 mx-auto mb-1" />
                 <div>Bangkok, Thailand</div>

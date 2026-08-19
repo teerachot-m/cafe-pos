@@ -81,6 +81,7 @@ function printSinglePage(bodyHtml: string): Promise<void> {
       .bold { font-weight: bold; }
       .sm { font-size: 10px; }
       .opt { padding-left: 10px; font-size: 10px; }
+      .platform-no { font-size: 20px; font-weight: bold; }
       /* Compact cup label: 80mm wide, ~25mm tall */
       .label { min-height: 25mm; padding: 2mm 3mm; border-top: 1px dashed #000; }
       .label-logo { width: 18mm; display: block; margin: 0 auto 1mm; }
@@ -147,7 +148,6 @@ async function printSlips(bodies: string[]) {
 
 function receiptHtml(order: PrintableOrder): string {
   const dt = new Date(order.createdAt).toLocaleString('th-TH');
-  const gp = order.channelGpPercent ?? 0;
 
   const itemsHtml = (order.items || [])
     .map((it) => {
@@ -166,21 +166,23 @@ function receiptHtml(order: PrintableOrder): string {
       ? `<div class="row"><span>POINT DISCOUNT:</span><span>-฿${order.pointDiscount!.toFixed(2)}</span></div>`
       : '';
 
+  const platformHtml = order.externalOrderNo
+    ? `<div class="center">
+        <div>${esc(order.channel?.name || '-')}</div>
+        <div class="platform-no">${esc(order.externalOrderNo)}</div>
+      </div>`
+    : '';
+
   return `
     <div class="slip page">
       <div class="center">
         <img class="logo" src="/logo_single.png" alt="HAUS BLEND" />
-        <div class="sm">Bangkok, Thailand</div>
-        <div class="sm">TEL: 02-123-4567</div>
+        <div class="sm">Bond St. Muangthongthani</div>
       </div>
+      ${platformHtml}
       <div class="dashed"></div>
-      <div class="sm">
-        <div>ORDER #: ${esc(order.orderNo)}</div>
-        ${order.externalOrderNo ? `<div class="bold">PLATFORM #: ${esc(order.externalOrderNo)}</div>` : ''}
-        <div>DATE: ${esc(dt)}</div>
-        <div>CHANNEL: ${esc(order.channel?.name || '-')}${gp > 0 ? ` (GP ${gp}%)` : ''}</div>
-        ${order.cashier?.name ? `<div>CASHIER: ${esc(order.cashier.name)}</div>` : ''}
-      </div>
+      <div class="row sm"><span>${esc(dt)}</span><span>${esc(order.orderNo)}</span></div>
+      <div class="sm">CHANNEL: ${esc(order.channel?.name || '-')}</div>
       <div class="dashed"></div>
       ${itemsHtml}
       <div class="dashed"></div>
@@ -189,15 +191,14 @@ function receiptHtml(order: PrintableOrder): string {
       <div class="solid"></div>
       <div class="row big"><span>TOTAL NET:</span><span>฿${order.netTotal.toFixed(2)}</span></div>
       <div class="dashed"></div>
-      <div class="center sm">THANK YOU FOR YOUR VISIT!</div>
+      <div class="center sm">We brew with ♡</div>
     </div>`;
 }
 
 function cupLabelsHtml(order: PrintableOrder): string[] {
-  const time = new Date(order.createdAt).toLocaleTimeString('th-TH', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  const channelAndPlatform = [order.channel?.name, order.externalOrderNo]
+    .filter(Boolean)
+    .join(' ');
 
   const labels: string[] = [];
   for (const it of order.items || []) {
@@ -207,9 +208,8 @@ function cupLabelsHtml(order: PrintableOrder): string[] {
         <div class="slip page label">
           <img class="label-logo" src="/logo_single.png" alt="HAUS BLEND" />
           <div class="row sm">
-            <span>${esc(order.externalOrderNo || order.orderNo)}</span>
-            <span>${esc(time)}</span>
-            <span>${esc(order.channel?.name || '')}</span>
+            <span>${esc(channelAndPlatform)}</span>
+            <span>${esc(order.orderNo)}</span>
           </div>
           <div class="label-name">${esc(it.productName)} <span class="label-cup">(${cup}/${it.quantity})</span></div>
           ${opts.length ? `<div class="sm">${opts.map(esc).join(' · ')}</div>` : ''}

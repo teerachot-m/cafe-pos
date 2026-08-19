@@ -209,7 +209,7 @@ export default function OrderQueuePage() {
           <div className="cream-card max-w-sm w-full rounded-3xl p-6 border border-stone-300">
             <h3 className="text-base font-extrabold text-stone-800 mb-3">พิมพ์สลิปย้อนหลัง</h3>
 
-            <div id="thermal-slip" className="bg-white text-stone-900 p-4 rounded-xl font-mono text-xs border border-stone-300 shadow-inner mb-4 space-y-2">
+            <div id="thermal-slip" className="bg-white text-stone-900 p-4 rounded-xl font-thermal text-xs border border-stone-300 shadow-inner mb-4 space-y-2">
               <div className="text-center border-b border-dashed border-stone-400 pb-2">
                 <img src="/logo_single.png" alt="HAUS BLEND" className="w-36 mx-auto mb-1" />
                 <div>Bangkok, Thailand</div>

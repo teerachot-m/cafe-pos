@@ -452,15 +452,10 @@ async function renderLabel(
     p.image(logo, 170);
     p.space(4);
   }
-  const time = new Date(order.createdAt).toLocaleTimeString("th-TH", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  p.row(
-    order.channel?.name || "" + " " + order.externalOrderNo || "",
-    order.orderNo || "",
-    { size: 20 },
-  );
+  const channelAndPlatform = [order.channel?.name, order.externalOrderNo]
+    .filter(Boolean)
+    .join(" ");
+  p.row(channelAndPlatform, order.orderNo || "", { size: 20 });
   p.text(`${item.productName} (${cup}/${item.quantity})`, {
     size: 30,
     bold: true,

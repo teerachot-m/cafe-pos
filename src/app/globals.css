@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700&display=swap');
 
 @layer base {
   :root {
@@ -62,3 +63,9 @@
 
 /* Thermal receipt printing is handled by src/lib/receipt.ts via a dedicated
    print iframe (80mm roll, height fits content) — no global print CSS needed. */
+
+/* On-screen thermal-slip preview — same font as the printed output
+   (receipt.ts / escpos.ts) so what you see matches what prints. */
+.font-thermal {
+  font-family: 'Noto Sans Thai', monospace;
+}
