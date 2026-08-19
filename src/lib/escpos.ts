@@ -383,10 +383,9 @@ async function renderReceipt(
   p.space(8);
   if (logo) {
     p.image(logo, 300);
-    p.space(2);
   }
   p.text("Bond St. Muangthongthani", { size: 20, align: "center" });
-  p.space(4);
+  p.space(10);
   if (order.externalOrderNo) {
     p.text(`${order.channel?.name || "-"}`, {
       size: 30,
