@@ -63,11 +63,13 @@ function printSinglePage(bodyHtml: string): Promise<void> {
     if (!doc || !win) return resolve();
 
     doc.open();
-    doc.write(`<!doctype html><html><head><meta charset="utf-8"><style>
+    doc.write(`<!doctype html><html><head><meta charset="utf-8">
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700&display=swap">
+      <style>
       @page { size: 80mm auto; margin: 0; }
       * { box-sizing: border-box; }
       html, body { margin: 0; padding: 0; width: 80mm; background: #fff; color: #000; }
-      body { font-family: 'Courier New', 'Sarabun', monospace; font-size: 12px; line-height: 1.45; }
+      body { font-family: 'Noto Sans Thai', sans-serif; font-size: 12px; line-height: 1.45; }
       .slip { width: 80mm; padding: 3mm; }
       .center { text-align: center; }
       .row { display: flex; justify-content: space-between; gap: 8px; }
@@ -87,17 +89,20 @@ function printSinglePage(bodyHtml: string): Promise<void> {
     </style></head><body>${bodyHtml}</body></html>`);
     doc.close();
 
-    // Wait for the logo image before opening the print dialog
+    // Wait for the logo image and the web font before opening the print
+    // dialog — printing before the font loads silently measures/prints with
+    // the fallback font instead.
     const imgs = Array.from(doc.images);
-    Promise.all(
-      imgs.map((img) =>
+    Promise.all([
+      ...imgs.map((img) =>
         img.complete
           ? Promise.resolve()
           : new Promise((res) => {
               img.onload = img.onerror = () => res(null);
             })
-      )
-    ).then(
+      ),
+      doc.fonts.ready,
+    ]).then(
       // Let layout/fonts settle before measuring
       () => new Promise((res) => setTimeout(res, 100))
     ).then(() => {

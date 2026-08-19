@@ -4,7 +4,7 @@
 // with a partial-cut command after every slip — so each slip is printed at
 // exactly its content length and cut automatically.
 
-import type { PrintableOrder } from './receipt';
+import type { PrintableOrder } from "./receipt";
 
 const DOTS_PER_LINE = 576; // 80mm printer, 203dpi, 72mm printable
 const ESC = 0x1b;
@@ -35,7 +35,7 @@ async function openUsbTransport(device: any): Promise<Transport> {
   let endpointNum = -1;
   for (const iface of device.configuration.interfaces) {
     for (const alt of iface.alternates) {
-      const out = alt.endpoints.find((e: any) => e.direction === 'out');
+      const out = alt.endpoints.find((e: any) => e.direction === "out");
       if (out) {
         ifaceNum = iface.interfaceNumber;
         endpointNum = out.endpointNumber;
@@ -44,7 +44,7 @@ async function openUsbTransport(device: any): Promise<Transport> {
     }
     if (ifaceNum >= 0) break;
   }
-  if (ifaceNum < 0) throw new Error('ไม่พบ OUT endpoint บนเครื่องพิมพ์');
+  if (ifaceNum < 0) throw new Error("ไม่พบ OUT endpoint บนเครื่องพิมพ์");
   await device.claimInterface(ifaceNum);
 
   return {
@@ -55,7 +55,11 @@ async function openUsbTransport(device: any): Promise<Transport> {
       }
     },
     async close() {
-      try { await device.close(); } catch { /* already closed */ }
+      try {
+        await device.close();
+      } catch {
+        /* already closed */
+      }
     },
   };
 }
@@ -80,21 +84,25 @@ async function openSerialTransport(port: any): Promise<Transport> {
       }
     },
     async close() {
-      try { await port.close(); } catch { /* already closed */ }
+      try {
+        await port.close();
+      } catch {
+        /* already closed */
+      }
     },
   };
 }
 
 export function isDirectPrintSupported(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  return 'usb' in navigator || 'serial' in navigator;
+  if (typeof navigator === "undefined") return false;
+  return "usb" in navigator || "serial" in navigator;
 }
 
 function friendlyPairError(e: any): Error {
   const msg = String(e?.message || e);
   if (/no (device|port) selected|notfounderror/i.test(msg)) {
     return new Error(
-      'ยังไม่ได้เลือกอุปกรณ์ — ในหน้าต่างที่เด้งขึ้นมา ให้คลิกชื่อเครื่องพิมพ์/พอร์ต COM ก่อน แล้วจึงกดปุ่ม Connect'
+      "ยังไม่ได้เลือกอุปกรณ์ — ในหน้าต่างที่เด้งขึ้นมา ให้คลิกชื่อเครื่องพิมพ์/พอร์ต COM ก่อน แล้วจึงกดปุ่ม Connect",
     );
   }
   return new Error(msg);
@@ -103,11 +111,12 @@ function friendlyPairError(e: any): Error {
 /** Pair over WebUSB (must be called from a click). */
 export async function pairPrinterUsb(): Promise<string> {
   const nav = navigator as any;
-  if (!nav.usb) throw new Error('เบราว์เซอร์นี้ไม่รองรับ WebUSB (ใช้ Chrome หรือ Edge)');
+  if (!nav.usb)
+    throw new Error("เบราว์เซอร์นี้ไม่รองรับ WebUSB (ใช้ Chrome หรือ Edge)");
   try {
     const device = await nav.usb.requestDevice({ filters: [] });
     activeTransport = await openUsbTransport(device);
-    return `USB: ${device.productName || 'printer'}`;
+    return `USB: ${device.productName || "printer"}`;
   } catch (e) {
     throw friendlyPairError(e);
   }
@@ -116,11 +125,14 @@ export async function pairPrinterUsb(): Promise<string> {
 /** Pair over Web Serial — for Citizen Virtual COM and other COM-port setups. */
 export async function pairPrinterSerial(): Promise<string> {
   const nav = navigator as any;
-  if (!nav.serial) throw new Error('เบราว์เซอร์นี้ไม่รองรับ Web Serial (ใช้ Chrome หรือ Edge)');
+  if (!nav.serial)
+    throw new Error(
+      "เบราว์เซอร์นี้ไม่รองรับ Web Serial (ใช้ Chrome หรือ Edge)",
+    );
   try {
     const port = await nav.serial.requestPort();
     activeTransport = await openSerialTransport(port);
-    return 'Serial (COM)';
+    return "Serial (COM)";
   } catch (e) {
     throw friendlyPairError(e);
   }
@@ -159,7 +171,30 @@ export async function hasPairedPrinter(): Promise<boolean> {
 // Canvas slip painter
 // ---------------------------------------------------------------------------
 
-const FONT = "'Courier New', 'Sarabun', monospace";
+const FONT = "'Noto Sans Thai', sans-serif";
+
+// ponytail: canvas text only renders with a web font once it's actually
+// loaded into `document.fonts` — injecting the stylesheet isn't enough by
+// itself, a fetch has to complete first.
+let fontLoadPromise: Promise<void> | null = null;
+function ensureFontLoaded(): Promise<void> {
+  if (!fontLoadPromise) {
+    fontLoadPromise = (async () => {
+      if (!document.querySelector('link[href*="Noto+Sans+Thai"]')) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href =
+          "https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;700&display=swap";
+        document.head.appendChild(link);
+      }
+      await Promise.all([
+        document.fonts.load(`24px ${FONT}`),
+        document.fonts.load(`bold 24px ${FONT}`),
+      ]);
+    })();
+  }
+  return fontLoadPromise;
+}
 
 class SlipPainter {
   private canvas: HTMLCanvasElement;
@@ -167,13 +202,13 @@ class SlipPainter {
   y = 0;
 
   constructor() {
-    this.canvas = document.createElement('canvas');
+    this.canvas = document.createElement("canvas");
     this.canvas.width = DOTS_PER_LINE;
     this.canvas.height = 4000;
-    this.ctx = this.canvas.getContext('2d')!;
-    this.ctx.fillStyle = '#fff';
+    this.ctx = this.canvas.getContext("2d")!;
+    this.ctx.fillStyle = "#fff";
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = '#000';
+    this.ctx.fillStyle = "#000";
     this.y = 8;
   }
 
@@ -183,15 +218,20 @@ class SlipPainter {
 
   text(
     str: string,
-    opts: { size?: number; bold?: boolean; align?: 'left' | 'center' | 'right'; x?: number } = {}
+    opts: {
+      size?: number;
+      bold?: boolean;
+      align?: "left" | "center" | "right";
+      x?: number;
+    } = {},
   ) {
-    const { size = 24, bold = false, align = 'left' } = opts;
-    this.ctx.font = `${bold ? 'bold ' : ''}${size}px ${FONT}`;
-    this.ctx.textBaseline = 'top';
+    const { size = 24, bold = false, align = "left" } = opts;
+    this.ctx.font = `${bold ? "bold " : ""}${size}px ${FONT}`;
+    this.ctx.textBaseline = "top";
     let x = opts.x ?? 0;
-    if (align === 'center') {
+    if (align === "center") {
       x = (DOTS_PER_LINE - this.ctx.measureText(str).width) / 2;
-    } else if (align === 'right') {
+    } else if (align === "right") {
       x = DOTS_PER_LINE - this.ctx.measureText(str).width;
     }
     this.ctx.fillText(str, Math.max(0, x), this.y);
@@ -199,10 +239,14 @@ class SlipPainter {
   }
 
   /** left + right on the same line */
-  row(left: string, right: string, opts: { size?: number; bold?: boolean } = {}) {
+  row(
+    left: string,
+    right: string,
+    opts: { size?: number; bold?: boolean } = {},
+  ) {
     const { size = 24, bold = false } = opts;
-    this.ctx.font = `${bold ? 'bold ' : ''}${size}px ${FONT}`;
-    this.ctx.textBaseline = 'top';
+    this.ctx.font = `${bold ? "bold " : ""}${size}px ${FONT}`;
+    this.ctx.textBaseline = "top";
     this.ctx.fillText(left, 0, this.y);
     const w = this.ctx.measureText(right).width;
     this.ctx.fillText(right, DOTS_PER_LINE - w, this.y);
@@ -210,10 +254,15 @@ class SlipPainter {
   }
 
   /** three columns: left / center / right */
-  row3(left: string, center: string, right: string, opts: { size?: number } = {}) {
+  row3(
+    left: string,
+    center: string,
+    right: string,
+    opts: { size?: number } = {},
+  ) {
     const { size = 20 } = opts;
     this.ctx.font = `${size}px ${FONT}`;
-    this.ctx.textBaseline = 'top';
+    this.ctx.textBaseline = "top";
     this.ctx.fillText(left, 0, this.y);
     const cw = this.ctx.measureText(center).width;
     this.ctx.fillText(center, (DOTS_PER_LINE - cw) / 2, this.y);
@@ -228,7 +277,7 @@ class SlipPainter {
     this.ctx.beginPath();
     if (dashed) this.ctx.setLineDash([8, 6]);
     this.ctx.lineWidth = 2;
-    this.ctx.strokeStyle = '#000';
+    this.ctx.strokeStyle = "#000";
     this.ctx.moveTo(0, this.y);
     this.ctx.lineTo(DOTS_PER_LINE, this.y);
     this.ctx.stroke();
@@ -246,11 +295,11 @@ class SlipPainter {
   /** crop to content height */
   finish(): HTMLCanvasElement {
     const h = this.y + 8;
-    const out = document.createElement('canvas');
+    const out = document.createElement("canvas");
     out.width = DOTS_PER_LINE;
     out.height = h;
-    const octx = out.getContext('2d')!;
-    octx.fillStyle = '#fff';
+    const octx = out.getContext("2d")!;
+    octx.fillStyle = "#fff";
     octx.fillRect(0, 0, out.width, out.height);
     octx.drawImage(this.canvas, 0, 0, DOTS_PER_LINE, h, 0, 0, DOTS_PER_LINE, h);
     return out;
@@ -264,7 +313,7 @@ function loadLogo(): Promise<HTMLImageElement | null> {
       const img = new Image();
       img.onload = () => res(img);
       img.onerror = () => res(null);
-      img.src = '/logo_single.png';
+      img.src = "/logo_single.png";
     });
   }
   return logoPromise;
@@ -275,7 +324,7 @@ function loadLogo(): Promise<HTMLImageElement | null> {
 // ---------------------------------------------------------------------------
 
 function canvasToRaster(canvas: HTMLCanvasElement): Uint8Array {
-  const ctx = canvas.getContext('2d')!;
+  const ctx = canvas.getContext("2d")!;
   const { width, height } = canvas;
   const img = ctx.getImageData(0, 0, width, height).data;
   const bytesPerRow = width >> 3; // width is a multiple of 8 (576)
@@ -285,7 +334,10 @@ function canvasToRaster(canvas: HTMLCanvasElement): Uint8Array {
     for (let xPix = 0; xPix < width; xPix++) {
       const i = (yPix * width + xPix) * 4;
       const a = img[i + 3];
-      const lum = a === 0 ? 255 : img[i] * 0.299 + img[i + 1] * 0.587 + img[i + 2] * 0.114;
+      const lum =
+        a === 0
+          ? 255
+          : img[i] * 0.299 + img[i + 1] * 0.587 + img[i + 2] * 0.114;
       if (lum < 160) {
         bitmap[yPix * bytesPerRow + (xPix >> 3)] |= 0x80 >> (xPix & 7);
       }
@@ -295,9 +347,14 @@ function canvasToRaster(canvas: HTMLCanvasElement): Uint8Array {
   // GS v 0 — print raster bit image
   const out = new Uint8Array(8 + bitmap.length);
   out.set([
-    GS, 0x76, 0x30, 0x00,
-    bytesPerRow & 0xff, (bytesPerRow >> 8) & 0xff,
-    height & 0xff, (height >> 8) & 0xff,
+    GS,
+    0x76,
+    0x30,
+    0x00,
+    bytesPerRow & 0xff,
+    (bytesPerRow >> 8) & 0xff,
+    height & 0xff,
+    (height >> 8) & 0xff,
   ]);
   out.set(bitmap, 8);
   return out;
@@ -317,63 +374,90 @@ const parseOptions = (json?: string | null): string[] => {
   }
 };
 
-async function renderReceipt(order: PrintableOrder): Promise<HTMLCanvasElement> {
+async function renderReceipt(
+  order: PrintableOrder,
+): Promise<HTMLCanvasElement> {
+  await ensureFontLoaded();
   const p = new SlipPainter();
   const logo = await loadLogo();
+  if (order.externalOrderNo) {
+    p.text(`${order.channel?.name || "-"}`, { size: 30, bold: true });
+    p.text(`${order.externalOrderNo}`, { size: 40, bold: true });
+  }
   if (logo) {
     p.image(logo, 300);
     p.space(4);
   }
-  p.text('Bangkok, Thailand', { size: 20, align: 'center' });
-  p.text('TEL: 02-123-4567', { size: 20, align: 'center' });
+  p.text("Bond St. Muangthongthani", { size: 20, align: "center" });
+  // p.text('TEL: 02-123-4567', { size: 20, align: 'center' });
   p.line();
-  p.text(`ORDER #: ${order.orderNo}`, { size: 20 });
-  if (order.externalOrderNo) {
-    p.text(`PLATFORM #: ${order.externalOrderNo}`, { size: 20, bold: true });
-  }
-  p.text(`DATE: ${new Date(order.createdAt).toLocaleString('th-TH')}`, { size: 20 });
-  const gp = order.channelGpPercent ?? 0;
-  p.text(`CHANNEL: ${order.channel?.name || '-'}${gp > 0 ? ` (GP ${gp}%)` : ''}`, { size: 20 });
-  if (order.cashier?.name) p.text(`CASHIER: ${order.cashier.name}`, { size: 20 });
+  p.row(
+    `${new Date(order.createdAt).toLocaleString("th-TH")}`,
+    `${order.orderNo}`,
+    {
+      size: 20,
+    },
+  );
+  p.text(`CHANNEL: ${order.channel?.name || "-"}`, { size: 20 });
+  // if (order.cashier?.name)
+  //   p.text(`CASHIER: ${order.cashier.name}`, { size: 20 });
   p.line();
   for (const it of order.items || []) {
-    p.row(`${it.productName} x${it.quantity}`, `฿${it.subtotal.toFixed(2)}`, { size: 24 });
+    p.row(`${it.productName} x${it.quantity}`, `฿${it.subtotal.toFixed(2)}`, {
+      size: 24,
+    });
     for (const o of parseOptions(it.selectedOptionsJson)) {
       p.text(`  - ${o}`, { size: 20 });
     }
   }
   p.line();
-  p.row('SUBTOTAL:', `฿${order.subtotal.toFixed(2)}`, { size: 24, bold: true });
+  p.row("SUBTOTAL:", `฿${order.subtotal.toFixed(2)}`, { size: 24, bold: true });
   if ((order.pointDiscount ?? 0) > 0) {
-    p.row('POINT DISCOUNT:', `-฿${order.pointDiscount!.toFixed(2)}`, { size: 24 });
+    p.row("POINT DISCOUNT:", `-฿${order.pointDiscount!.toFixed(2)}`, {
+      size: 24,
+    });
   }
   p.line(false);
-  p.row('TOTAL NET:', `฿${order.netTotal.toFixed(2)}`, { size: 30, bold: true });
+  p.row("TOTAL NET:", `฿${order.netTotal.toFixed(2)}`, {
+    size: 30,
+    bold: true,
+  });
   p.line();
-  p.text('THANK YOU FOR YOUR VISIT!', { size: 20, align: 'center' });
+  p.text("Brew with ♡", { size: 20, align: "center" });
   return p.finish();
 }
 
 async function renderLabel(
   order: PrintableOrder,
-  item: { productName: string; quantity: number; selectedOptionsJson?: string | null },
-  cup: number
+  item: {
+    productName: string;
+    quantity: number;
+    selectedOptionsJson?: string | null;
+  },
+  cup: number,
 ): Promise<HTMLCanvasElement> {
+  await ensureFontLoaded();
   const p = new SlipPainter();
   const logo = await loadLogo();
   if (logo) {
     p.image(logo, 170);
     p.space(4);
   }
-  const time = new Date(order.createdAt).toLocaleTimeString('th-TH', {
-    hour: '2-digit',
-    minute: '2-digit',
+  const time = new Date(order.createdAt).toLocaleTimeString("th-TH", {
+    hour: "2-digit",
+    minute: "2-digit",
   });
-  p.row3(order.externalOrderNo || order.orderNo, time, order.channel?.name || '', { size: 20 });
-  p.text(`${item.productName} (${cup}/${item.quantity})`, { size: 30, bold: true });
+  p.text(
+    order.channel?.name || "" + " " + order.externalOrderNo || order.orderNo,
+    { size: 20 },
+  );
+  p.text(`${item.productName} (${cup}/${item.quantity})`, {
+    size: 30,
+    bold: true,
+  });
   const opts = parseOptions(item.selectedOptionsJson);
   if (opts.length > 0) {
-    p.text(opts.join(' · '), { size: 20 });
+    p.text(opts.join(" · "), { size: 20 });
   }
   return p.finish();
 }
@@ -389,10 +473,13 @@ async function renderLabel(
  */
 export async function printOrderDirect(
   order: PrintableOrder,
-  parts: { receipt?: boolean; labels?: boolean } = { receipt: true, labels: true }
+  parts: { receipt?: boolean; labels?: boolean } = {
+    receipt: true,
+    labels: true,
+  },
 ): Promise<void> {
   const transport = await getTransport();
-  if (!transport) throw new Error('NO_PRINTER');
+  if (!transport) throw new Error("NO_PRINTER");
 
   const chunks: Uint8Array[] = [INIT];
 
